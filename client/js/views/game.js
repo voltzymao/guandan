@@ -34,6 +34,7 @@ const GameView = {
     _selectedGroup: false,  // 选中牌左侧纵向堆叠
     _arrangePlans: [],
     _arrangePlanIndex: 0,
+    _dragActive: false, // 拖拽刷选中，避免中途重渲
 
     _DIRS: ['bottom', 'right', 'top', 'left'],
 
@@ -413,7 +414,7 @@ const GameView = {
 
     _toggleCard(card) {
         store.toggleCard(card);
-        this._renderHand();
+        if (!this._dragActive) this._renderHand();
         document.getElementById('btn-play').disabled = store.selectedCards.length === 0;
     },
 
@@ -439,7 +440,10 @@ const GameView = {
                 (c) => this._toggleCard(c),
                 this._state?.levelRank,
                 (cards) => this._selectCards(cards),
-                this._selectedGroup
+                this._selectedGroup,
+                // 拖拽生命周期：开始时暂停重渲，结束时一次性刷新
+                () => { this._dragActive = true; },
+                () => { this._dragActive = false; this._renderHand(); }
             );
         }
         this._updateGroupSelectedBtn();
@@ -454,7 +458,10 @@ const GameView = {
             handEl, plan, store.selectedCards,
             (c) => this._toggleCard(c),
             (cards) => this._selectStack(cards),
-            this._state?.levelRank
+            this._state?.levelRank,
+            // 拖拽生命周期
+            () => { this._dragActive = true; },
+            () => { this._dragActive = false; this._renderHand(); }
         );
         // 切换按钮显隐
         const cycleBtn = document.getElementById('btn-cycle-arrange');

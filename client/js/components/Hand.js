@@ -6,7 +6,7 @@ const Hand = {
      * 渲染自己的手牌（正面，可点击选牌 + 拖拽框选）
      * @param {boolean} selectedGroup - 是否将选中牌理牌到左侧竖向堆叠
      */
-    renderFront(container, cards, selectedCards, onToggle, levelRank, onMultiSelect, selectedGroup) {
+    renderFront(container, cards, selectedCards, onToggle, levelRank, onMultiSelect, selectedGroup, onDragStart, onDragEnd) {
         container.innerHTML = '';
         const selectedKeys = new Set(selectedCards.map(c => HandAnalyzer.cardKey(c)));
 
@@ -40,7 +40,7 @@ const Hand = {
             container.appendChild(el);
         });
 
-        if (onToggle) this._setupDragSelect(container, cards, onToggle);
+        if (onToggle) this._setupDragSelect(container, cards, onToggle, onDragStart, onDragEnd);
     },
 
     /**
@@ -71,13 +71,16 @@ const Hand = {
 
     /**
      * 设置拖拽刷选：按住鼠标拖动，经过的牌切换选中状态
+     * @param {Function} onDragStart - 拖拽开始时调用
+     * @param {Function} onDragEnd - 拖拽结束时调用（传入 changed 的 cards + toggledKey set）
      */
-    _setupDragSelect(container, cards, onToggle) {
+    _setupDragSelect(container, cards, onToggle, onDragStart, onDragEnd) {
         if (container._dragCleanup) container._dragCleanup();
 
         let dragState = null;
         let suppressClickFlag = false;
         const toggledKeys = new Set();
+        const changedCards = [];
 
         const getCardFromPoint = (e) => {
             const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -91,7 +94,9 @@ const Hand = {
             if (e.button !== 0) return;
             dragState = { dragging: false, startX: e.clientX, startY: e.clientY };
             toggledKeys.clear();
+            changedCards.length = 0;
             container.style.userSelect = 'none';
+            if (onDragStart) onDragStart();
         };
 
         const onMouseMove = (e) => {
@@ -110,7 +115,12 @@ const Hand = {
                     if (cardId && !toggledKeys.has(cardId)) {
                         toggledKeys.add(cardId);
                         const card = cards.find(c => HandAnalyzer.cardKey(c) === cardId);
-                        if (card) onToggle(card);
+                        if (card) {
+                            onToggle(card);
+                            changedCards.push(card);
+                            // 即时视觉反馈：直接切换 DOM 元素的 selected 类
+                            cardEl.classList.toggle('selected');
+                        }
                     }
                 }
             }
@@ -119,11 +129,13 @@ const Hand = {
         const onMouseUp = () => {
             if (!dragState) return;
             container.style.userSelect = '';
-            if (dragState.dragging) {
+            const wasDragging = dragState.dragging;
+            dragState = null;
+            if (wasDragging) {
                 suppressClickFlag = true;
                 setTimeout(() => { suppressClickFlag = false; }, 0);
             }
-            dragState = null;
+            if (onDragEnd) onDragEnd(changedCards, toggledKeys);
         };
 
         const suppressClick = (e) => {
@@ -153,7 +165,7 @@ const Hand = {
      * 左侧：王牌→级牌→炸弹→同花顺 竖排堆叠
      * 右侧：剩余牌 按花色分组水平排列
      */
-    renderArranged(container, arranged, selectedCards, onToggle, onSelectStack, levelRank) {
+    renderArranged(container, arranged, selectedCards, onToggle, onSelectStack, levelRank, onDragStart, onDragEnd) {
         container.innerHTML = '';
         const selectedKeys = new Set(selectedCards.map(c => HandAnalyzer.cardKey(c)));
 
@@ -193,8 +205,8 @@ const Hand = {
             container.appendChild(el);
         });
 
-        // 框选
-        this._setupDragSelect(container, allCards, onToggle);
+        // 框选（支持拖拽刷选）
+        this._setupDragSelect(container, allCards, onToggle, onDragStart, onDragEnd);
     },
 
     /**
