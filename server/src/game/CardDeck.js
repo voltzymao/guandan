@@ -1,0 +1,119 @@
+/**
+ * CardDeck - 掼蛋牌组管理
+ * 108张牌：2副标准扑克（含大小王）
+ */
+
+const SUITS = ['spades', 'hearts', 'diamonds', 'clubs'];
+const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+
+class CardDeck {
+    /**
+     * 创建108张牌（2副）
+     */
+    static createDeck() {
+        const cards = [];
+        for (let deck = 0; deck < 2; deck++) {
+            for (const suit of SUITS) {
+                for (const rank of RANKS) {
+                    cards.push({ suit, rank, deck });
+                }
+            }
+            cards.push({ suit: 'joker', rank: 'black_joker', deck });
+            cards.push({ suit: 'joker', rank: 'red_joker', deck });
+        }
+        return cards;
+    }
+
+    /**
+     * Fisher-Yates 洗牌
+     */
+    static shuffle(cards) {
+        const arr = [...cards];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    /**
+     * 发牌：4人各27张
+     */
+    static deal(shuffledDeck) {
+        const hands = [[], [], [], []];
+        for (let i = 0; i < shuffledDeck.length; i++) {
+            hands[i % 4].push(shuffledDeck[i]);
+        }
+        return hands;
+    }
+
+    /**
+     * 手牌排序
+     */
+    static sortHand(hand, wildRank) {
+        return [...hand].sort((a, b) => {
+            if (a.suit === 'joker' && b.suit === 'joker') {
+                return a.rank === 'red_joker' ? 1 : -1;
+            }
+            if (a.suit === 'joker') return 1;
+            if (b.suit === 'joker') return -1;
+
+            const aIsWild = a.suit === 'hearts' && a.rank === wildRank;
+            const bIsWild = b.suit === 'hearts' && b.rank === wildRank;
+            if (aIsWild && !bIsWild) return 1;
+            if (!aIsWild && bIsWild) return -1;
+
+            const rankDiff = RANKS.indexOf(a.rank) - RANKS.indexOf(b.rank);
+            if (rankDiff !== 0) return rankDiff;
+
+            const suitOrder = ['clubs', 'diamonds', 'hearts', 'spades'];
+            return suitOrder.indexOf(a.suit) - suitOrder.indexOf(b.suit);
+        });
+    }
+
+    /**
+     * 检查手牌是否包含指定牌
+     */
+    static containsCards(hand, cards) {
+        const handCopy = [...hand];
+        for (const card of cards) {
+            const idx = handCopy.findIndex(c => c.suit === card.suit && c.rank === card.rank);
+            if (idx === -1) return false;
+            handCopy.splice(idx, 1);
+        }
+        return true;
+    }
+
+    /**
+     * 从手牌移除指定牌
+     */
+    static removeCards(hand, cards) {
+        const result = [...hand];
+        for (const card of cards) {
+            const idx = result.findIndex(c => c.suit === card.suit && c.rank === card.rank);
+            if (idx !== -1) result.splice(idx, 1);
+        }
+        return result;
+    }
+
+    /**
+     * 获取手牌中最大的非级牌非王牌（用于进贡）
+     */
+    static getBestTributeCard(hand, wildRank) {
+        const eligible = hand.filter(c => c.suit !== 'joker' && c.rank !== wildRank);
+        if (eligible.length === 0) {
+            // 只有级牌或王，给最大的
+            const sorted = [...hand].sort((a, b) => {
+                if (a.suit === 'joker' && b.suit === 'joker') return a.rank === 'red_joker' ? 1 : -1;
+                if (a.suit === 'joker') return 1;
+                if (b.suit === 'joker') return -1;
+                return RANKS.indexOf(a.rank) - RANKS.indexOf(b.rank);
+            });
+            return sorted[sorted.length - 1];
+        }
+        const sorted = eligible.sort((a, b) => RANKS.indexOf(a.rank) - RANKS.indexOf(b.rank));
+        return sorted[sorted.length - 1];
+    }
+}
+
+module.exports = CardDeck;

@@ -1,0 +1,29 @@
+# 依赖（容器内重新安装）
+server/node_modules/
+node_modules/
+
+# 数据库文件（通过 volume 挂载）
+data/
+
+# 环境变量（通过 docker-compose env 注入）
+server/.env
+.env
+
+# 日志
+logs/
+*.log
+
+# 版本控制
+.git/
+.gitignore
+
+# 文档
+*.md
+docs/
+
+# 编辑器
+.vscode/
+.idea/
+
+# 测试
+coverage/

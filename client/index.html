@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>掼蛋</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/cards.css">
+    <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="css/lobby.css">
+    <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+    <div id="connection-status" class="connected">已连接</div>
+    <div id="app">
+        <!-- 登录/注册界面 -->
+        <div id="view-auth" class="view active">
+            <div class="auth-bg">
+                <div class="auth-card">
+                    <h1 class="logo">掼蛋</h1>
+                    <p class="logo-sub">经典升级扑克</p>
+                    <div class="tab-bar">
+                        <button class="tab active" data-tab="login">登录</button>
+                        <button class="tab" data-tab="register">注册</button>
+                    </div>
+                    <form id="form-login" class="auth-form">
+                        <input type="text" id="login-username" placeholder="用户名" autocomplete="username" required>
+                        <input type="password" id="login-password" placeholder="密码" autocomplete="current-password" required>
+                        <button type="submit" class="btn btn-primary">登录</button>
+                        <button type="button" id="btn-guest" class="btn btn-ghost">游客登录</button>
+                    </form>
+                    <form id="form-register" class="auth-form hidden">
+                        <input type="text" id="reg-username" placeholder="用户名（3-16位）" autocomplete="username" required>
+                        <input type="email" id="reg-email" placeholder="邮箱（可选）" autocomplete="email">
+                        <input type="password" id="reg-password" placeholder="密码（6位以上）" autocomplete="new-password" required>
+                        <button type="submit" class="btn btn-primary">注册</button>
+                    </form>
+                    <p id="auth-error" class="error-msg hidden"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 大厅界面 -->
+        <div id="view-lobby" class="view hidden">
+            <header class="lobby-header">
+                <span class="logo-sm">掼蛋</span>
+                <nav class="lobby-nav">
+                    <button class="nav-btn active" data-panel="rooms">房间大厅</button>
+                    <button class="nav-btn" data-panel="friends">好友</button>
+                    <button class="nav-btn" data-panel="history">战绩</button>
+                </nav>
+                <div class="user-info">
+                    <span id="lobby-username"></span>
+                    <span id="lobby-rating" class="rating-badge"></span>
+                    <button id="btn-logout" class="btn btn-ghost btn-sm">退出</button>
+                </div>
+            </header>
+
+            <main class="lobby-main">
+                <!-- 房间列表面板 -->
+                <div id="panel-rooms" class="panel active">
+                    <div class="panel-toolbar">
+                        <button id="btn-create-room" class="btn btn-primary">创建房间</button>
+                        <div class="join-row">
+                            <input type="text" id="input-room-code" placeholder="输入房间码" maxlength="6">
+                            <button id="btn-join-room" class="btn btn-secondary">加入</button>
+                        </div>
+                        <button id="btn-quick-match" class="btn btn-accent">快速匹配</button>
+                    </div>
+                    <div id="room-list" class="room-list">
+                        <p class="empty-hint">暂无房间，创建一个吧</p>
+                    </div>
+                </div>
+
+                <!-- 好友面板 -->
+                <div id="panel-friends" class="panel hidden">
+                    <div class="panel-toolbar">
+                        <input type="text" id="input-search-user" placeholder="搜索用户名">
+                        <button id="btn-search-user" class="btn btn-secondary">搜索</button>
+                    </div>
+                    <div id="search-results" class="user-list hidden"></div>
+                    <h3>好友列表</h3>
+                    <div id="friend-list" class="user-list"></div>
+                </div>
+
+                <!-- 战绩面板 -->
+                <div id="panel-history" class="panel hidden">
+                    <div id="history-list" class="history-list">
+                        <p class="empty-hint">暂无战绩</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- 房间等待界面 -->
+        <div id="view-room" class="view hidden">
+            <div class="room-container">
+                <div class="room-header">
+                    <button id="btn-leave-room" class="btn btn-ghost btn-sm">← 返回大厅</button>
+                    <h2>房间 <span id="room-code-display"></span></h2>
+                    <button id="btn-copy-code" class="btn btn-ghost btn-sm">复制房间码</button>
+                </div>
+                <div class="room-seats">
+                    <div class="seat" id="seat-0"><div class="seat-avatar"></div><div class="seat-name">等待玩家...</div><div class="seat-status"></div></div>
+                    <div class="seat" id="seat-1"><div class="seat-avatar"></div><div class="seat-name">等待玩家...</div><div class="seat-status"></div></div>
+                    <div class="seat" id="seat-2"><div class="seat-avatar"></div><div class="seat-name">等待玩家...</div><div class="seat-status"></div></div>
+                    <div class="seat" id="seat-3"><div class="seat-avatar"></div><div class="seat-name">等待玩家...</div><div class="seat-status"></div></div>
+                </div>
+                <div class="room-team-hint">
+                    <span class="team-a">队伍A：座位 1 & 3</span>
+                    <span class="team-b">队伍B：座位 2 & 4</span>
+                </div>
+                <div class="room-actions">
+                    <button id="btn-add-bot" class="btn btn-secondary hidden">添加机器人</button>
+                    <button id="btn-ready" class="btn btn-primary btn-lg">准备</button>
+                </div>
+                <div id="room-chat" class="chat-box">
+                    <div id="room-chat-messages" class="chat-messages"></div>
+                    <div class="chat-input-row">
+                        <input type="text" id="room-chat-input" placeholder="发送消息..." maxlength="100">
+                        <button id="btn-room-chat-send" class="btn btn-secondary btn-sm">发送</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div id="view-game" class="view hidden">
+            <div id="game-table">
+                <!-- 对面玩家（上方） -->
+                <div class="player-area player-top" id="player-top">
+                    <div class="player-info">
+                        <div class="player-avatar"></div>
+                        <div class="player-name" id="name-top"></div>
+                        <div class="player-card-count" id="count-top"></div>
+                        <div class="player-level-badge" id="level-top"></div>
+                    </div>
+                    <div class="player-hand hand-back" id="hand-top"></div>
+                    <div class="player-played" id="played-top"></div>
+                    <div class="turn-indicator" id="turn-top"></div>
+                </div>
+
+                <!-- 左侧玩家 -->
+                <div class="player-area player-left" id="player-left">
+                    <div class="player-info">
+                        <div class="player-avatar"></div>
+                        <div class="player-name" id="name-left"></div>
+                        <div class="player-card-count" id="count-left"></div>
+                    </div>
+                    <div class="player-hand hand-back hand-vertical" id="hand-left"></div>
+                    <div class="player-played" id="played-left"></div>
+                    <div class="turn-indicator" id="turn-left"></div>
+                </div>
+
+                <!-- 中央桌面 -->
+                <div id="game-center">
+                    <div id="center-info">
+                        <div id="game-level-display">
+                            <span class="team-level" id="level-team-a">A队: 2</span>
+                            <span class="vs-sep">VS</span>
+                            <span class="team-level" id="level-team-b">B队: 2</span>
+                        </div>
+                        <div id="last-play-area">
+                            <div id="last-play-cards"></div>
+                            <div id="last-play-info"></div>
+                        </div>
+                        <div id="game-message" class="game-message hidden"></div>
+                    </div>
+                    <div id="turn-timer-bar"><div id="turn-timer-fill"></div></div>
+                </div>
+
+                <!-- 右侧玩家 -->
+                <div class="player-area player-right" id="player-right">
+                    <div class="player-info">
+                        <div class="player-avatar"></div>
+                        <div class="player-name" id="name-right"></div>
+                        <div class="player-card-count" id="count-right"></div>
+                    </div>
+                    <div class="player-hand hand-back hand-vertical" id="hand-right"></div>
+                    <div class="player-played" id="played-right"></div>
+                    <div class="turn-indicator" id="turn-right"></div>
+                </div>
+
+                <!-- 自己（下方） -->
+                <div class="player-area player-bottom" id="player-bottom">
+                    <div class="player-info">
+                        <div class="player-avatar self-avatar"></div>
+                        <div class="player-name" id="name-bottom"></div>
+                        <div class="player-card-count" id="count-bottom"></div>
+                    </div>
+                    <div class="player-played" id="played-bottom"></div>
+                    <div class="player-hand hand-front" id="hand-bottom"></div>
+                    <div class="game-actions" id="game-actions">
+                        <button id="btn-play" class="btn btn-primary btn-lg" disabled>出牌</button>
+                        <button id="btn-pass" class="btn btn-secondary btn-lg" disabled>不出</button>
+                        <button id="btn-group-selected" class="btn btn-ghost btn-sm hidden">理牌</button>
+                        <button id="btn-arrange" class="btn btn-ghost btn-sm active">普通</button>
+                        <button id="btn-cycle-arrange" class="btn btn-ghost btn-sm hidden" title="切换同花顺排列方案">↻ 1</button>
+                        <button id="btn-hint" class="btn btn-ghost btn-sm">提示</button>
+                    </div>
+                    <div class="turn-indicator" id="turn-bottom"></div>
+                </div>
+            </div>
+
+            <!-- 游戏内聊天 -->
+            <div id="game-chat" class="game-chat collapsed">
+                <button id="btn-toggle-chat" class="btn btn-ghost btn-sm">💬</button>
+                <div id="game-chat-messages" class="chat-messages"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="game-chat-input" placeholder="发送消息..." maxlength="100">
+                    <button id="btn-game-chat-send" class="btn btn-secondary btn-sm">发送</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进贡/还贡弹窗 -->
+        <div id="modal-tribute" class="modal hidden">
+            <div class="modal-content modal-tribute-content">
+                <h3 id="tribute-title">进贡</h3>
+                <p id="tribute-desc"></p>
+                <div class="tribute-columns">
+                    <div class="tribute-column">
+                        <div class="tribute-column-label">进贡</div>
+                        <div id="tribute-left-area" class="tribute-hand"></div>
+                    </div>
+                    <div class="tribute-column">
+                        <div class="tribute-column-label">还贡</div>
+                        <div id="tribute-right-area" class="tribute-hand"></div>
+                    </div>
+                </div>
+                <button id="btn-confirm-tribute" class="btn btn-primary" disabled>确认</button>
+            </div>
+        </div>
+
+        <!-- 局结束弹窗 -->
+        <div id="modal-round-end" class="modal hidden">
+            <div class="modal-content">
+                <h3 id="round-end-title"></h3>
+                <div id="round-end-order"></div>
+                <div id="round-end-levels"></div>
+                <button id="btn-round-continue" class="btn btn-primary">继续</button>
+            </div>
+        </div>
+
+        <!-- 游戏结束弹窗 -->
+        <div id="modal-game-end" class="modal hidden">
+            <div class="modal-content game-end-content">
+                <h2 id="game-end-title"></h2>
+                <div id="game-end-stats"></div>
+                <div class="modal-actions">
+                    <button id="btn-play-again" class="btn btn-primary">再来一局</button>
+                    <button id="btn-back-lobby" class="btn btn-secondary">返回大厅</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast 通知 -->
+        <div id="toast-container"></div>
+    </div>
+
+    <!-- 第三方库 -->
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+
+    <!-- 工具模块 -->
+    <script src="js/utils/api.js"></script>
+    <script src="js/utils/socket.js"></script>
+    <script src="js/utils/store.js"></script>
+    <script src="js/utils/toast.js"></script>
+    <script src="js/utils/handAnalyzer.js"></script>
+
+    <!-- 组件 -->
+    <script src="js/components/Card.js"></script>
+    <script src="js/components/Hand.js"></script>
+    <script src="js/components/Timer.js"></script>
+
+    <!-- 视图 -->
+    <script src="js/views/auth.js"></script>
+    <script src="js/views/lobby.js"></script>
+    <script src="js/views/room.js"></script>
+    <script src="js/views/game.js"></script>
+
+    <!-- 应用入口 -->
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+/* ===== CSS 变量 & 重置 ===== */
+:root {
+    --color-bg: #1a1a2e;
+    --color-surface: #16213e;
+    --color-surface2: #0f3460;
+    --color-primary: #e94560;
+    --color-primary-hover: #c73652;
+    --color-secondary: #533483;
+    --color-accent: #f5a623;
+    --color-text: #e0e0e0;
+    --color-text-muted: #888;
+    --color-border: #2a2a4a;
+    --color-success: #4caf50;
+    --color-error: #f44336;
+    --color-warning: #ff9800;
+    --color-team-a: #4fc3f7;
+    --color-team-b: #ef9a9a;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.5);
+    --font-main: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    --transition: 0.2s ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    height: 100%;
+    font-family: var(--font-main);
+    background: var(--color-bg);
+    color: var(--color-text);
+    overflow: hidden;
+    user-select: none;
+}
+
+#app { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+
+/* ===== 视图切换 ===== */
+.view { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.view.hidden { display: none; }
+.view.active { display: flex; }
+
+/* ===== 按钮 ===== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-main);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+    outline: none;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--color-primary); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.btn-secondary { background: var(--color-secondary); color: #fff; }
+.btn-secondary:hover:not(:disabled) { filter: brightness(1.2); }
+.btn-accent { background: var(--color-accent); color: #1a1a2e; }
+.btn-accent:hover:not(:disabled) { filter: brightness(1.1); }
+.btn-ghost { background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border); }
+.btn-ghost:hover:not(:disabled) { color: var(--color-text); border-color: var(--color-text-muted); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-lg { padding: 14px 32px; font-size: 16px; }
+
+/* ===== 输入框 ===== */
+input[type="text"], input[type="password"], input[type="email"] {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-family: var(--font-main);
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color var(--transition);
+    width: 100%;
+}
+input:focus { border-color: var(--color-primary); }
+input::placeholder { color: var(--color-text-muted); }
+
+/* ===== 弹窗 ===== */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+.modal.hidden { display: none; }
+.modal-content {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    min-width: 320px;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+}
+.modal-content h2, .modal-content h3 { margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 12px; justify-content: center; margin-top: 24px; }
+
+/* ===== 聊天框 ===== */
+.chat-box {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.chat-messages {
+    height: 120px;
+    overflow-y: auto;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+}
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+.chat-msg { color: var(--color-text-muted); }
+.chat-msg .chat-sender { color: var(--color-accent); font-weight: 600; }
+.chat-input-row { display: flex; gap: 8px; padding: 8px; border-top: 1px solid var(--color-border); }
+.chat-input-row input { flex: 1; }
+
+/* ===== Toast ===== */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+.toast {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 12px 20px;
+    font-size: 14px;
+    box-shadow: var(--shadow-md);
+    animation: toast-in 0.3s ease;
+    pointer-events: auto;
+    max-width: 300px;
+}
+.toast.success { border-left: 3px solid var(--color-success); }
+.toast.error { border-left: 3px solid var(--color-error); }
+.toast.info { border-left: 3px solid var(--color-primary); }
+.toast.warning { border-left: 3px solid var(--color-warning); }
+.toast.fade-out { animation: toast-out 0.3s ease forwards; }
+
+/* ===== 连接状态 ===== */
+#connection-status {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    padding: 6px 16px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+#connection-status.disconnected {
+    background: var(--color-error);
+    color: #fff;
+    transform: translateY(0);
+    opacity: 1;
+}
+#connection-status.connected {
+    background: var(--color-success);
+    color: #fff;
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+#connection-status.reconnecting {
+    background: var(--color-warning);
+    color: #fff;
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* ===== 工具类 ===== */
+.hidden { display: none !important; }
+.error-msg { color: var(--color-error); font-size: 13px; margin-top: 8px; }
+.empty-hint { color: var(--color-text-muted); text-align: center; padding: 32px; font-size: 14px; }

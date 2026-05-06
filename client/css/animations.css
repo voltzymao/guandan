@@ -1,0 +1,82 @@
+/* ===== 动画 ===== */
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-out {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(20px); }
+}
+
+@keyframes msg-pop {
+    0% { transform: scale(0.8); opacity: 0; }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes card-deal {
+    from { transform: translateY(-40px) scale(0.8); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes card-play {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-20px) scale(1.05); }
+    100% { transform: translateY(0); }
+}
+
+@keyframes bomb-flash {
+    0%, 100% { box-shadow: none; }
+    25% { box-shadow: 0 0 30px rgba(255,165,0,0.8); }
+    75% { box-shadow: 0 0 30px rgba(255,0,0,0.8); }
+}
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 8px rgba(245,166,35,0.3); }
+    50% { box-shadow: 0 0 20px rgba(245,166,35,0.7); }
+}
+
+@keyframes slide-up {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* 应用动画的类 */
+.anim-deal { animation: card-deal 0.3s ease forwards; }
+.anim-play { animation: card-play 0.3s ease; }
+.anim-bomb { animation: bomb-flash 0.6s ease; }
+.anim-pulse { animation: pulse-glow 1.5s ease infinite; }
+.anim-slide-up { animation: slide-up 0.3s ease; }
+.anim-fade-in { animation: fade-in 0.3s ease; }
+
+/* 轮到自己时的脉冲 */
+.player-bottom.my-turn .game-actions .btn-primary {
+    animation: pulse-glow 1.5s ease infinite;
+}
+
+/* 炸弹特效 */
+.bomb-effect {
+    animation: bomb-flash 0.6s ease;
+}
+
+/* 加载旋转 */
+.loading-spin {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+}
+
+/* 过渡效果 */
+.view-enter { animation: fade-in 0.3s ease; }
+.modal-enter { animation: slide-up 0.3s ease; }
+
