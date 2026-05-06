@@ -535,16 +535,41 @@ function handleGameEnd(io, gameId, roomCode, gameState) {
 
     const room = rooms.get(roomCode);
     if (room) {
+        const LEVELS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+        const RANK_TIERS = [
+            { name: 'bronze', minRating: 0 },
+            { name: 'silver', minRating: 1200 },
+            { name: 'gold', minRating: 1500 },
+            { name: 'diamond', minRating: 1800 },
+            { name: 'master', minRating: 2100 },
+        ];
+        const winnerTeamLevel = levelResult.winnerTeam === 'A' ? levelResult.teamALevel : levelResult.teamBLevel;
+
         for (const player of room.players) {
             if (player.isAI) continue;
             const isWinner = gameState.teams[levelResult.winnerTeam === 'A' ? 'teamA' : 'teamB'].includes(player.id);
             const ratingDelta = isWinner ? 20 : -15;
             const stats = User.getStats(player.id);
             if (stats) {
+                const newRating = Math.max(0, stats.rating + ratingDelta);
+                // 计算段位
+                let newTier = 'bronze';
+                for (let i = RANK_TIERS.length - 1; i >= 0; i--) {
+                    if (newRating >= RANK_TIERS[i].minRating) { newTier = RANK_TIERS[i].name; break; }
+                }
+                // 等级升级：赢家队伍最终等级高于当前个人等级时升级
+                let newLevel = stats.current_level || '2';
+                if (isWinner) {
+                    const curIdx = LEVELS.indexOf(newLevel);
+                    const winIdx = LEVELS.indexOf(winnerTeamLevel);
+                    if (winIdx > curIdx) newLevel = winnerTeamLevel;
+                }
                 User.updateStats(player.id, {
                     games_played: stats.games_played + 1,
                     games_won: stats.games_won + (isWinner ? 1 : 0),
-                    rating: Math.max(0, stats.rating + ratingDelta),
+                    rating: newRating,
+                    current_level: newLevel,
+                    rank_tier: newTier,
                 });
             }
         }

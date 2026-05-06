@@ -67,7 +67,9 @@ const LobbyView = {
     enter() {
         const user = store.user;
         document.getElementById('lobby-username').textContent = user.username;
-        document.getElementById('lobby-rating').textContent = `Lv.${user.rating || 2}`;
+        const ratingEl = document.getElementById('lobby-rating');
+        const rankLabel = ({ bronze: '🥉', silver: '🥈', gold: '🥇', diamond: '💎', master: '👑' })[user.rank_tier] || '';
+        ratingEl.textContent = `Lv.${user.current_level || '2'} · ${rankLabel} ${user.rating || 1000}分`;
 
         // 连接 Socket
         socketManager.connect(api.getToken());
