@@ -83,9 +83,11 @@ class CardEvaluator {
         const bomb = _checkBomb(cards, wildRank, jokers, wilds, normals);
         if (bomb) return bomb;
 
-        // 同花顺（5张+同花色连续，可含逢人配）
-        const sf = _checkStraightFlush(cards, wildRank, wilds, normals);
-        if (sf) return sf;
+        // 同花顺（固定5张同花色连续，可含逢人配）
+        if (n === 5) {
+            const sf = _checkStraightFlush(cards, wildRank, wilds, normals);
+            if (sf) return sf;
+        }
 
         // 单张
         if (n === 1) {
@@ -115,20 +117,20 @@ class CardEvaluator {
             return r || { type: null, valid: false };
         }
 
-        // 顺子（5张+）
-        if (n >= 5) {
+        // 顺子（固定5张）
+        if (n === 5) {
             const st = _checkStraight(cards, wildRank, wilds, normals);
             if (st) return st;
         }
 
-        // 双飞/钢板（三连张，6张+，3的倍数）如 333+444
-        if (n >= 6 && n % 3 === 0) {
+        // 双飞/钢板（固定6张，2连三）如 333+444
+        if (n === 6) {
             const ts = _checkTripleStraight(cards, wildRank, wilds, normals);
             if (ts) return ts;
         }
 
-        // 连对（6张+，偶数）
-        if (n >= 6 && n % 2 === 0) {
+        // 连对（固定6张，3连对）
+        if (n === 6) {
             const fp = _checkFlushPair(cards, wildRank, wilds, normals);
             if (fp) return fp;
         }
@@ -241,7 +243,7 @@ function _checkBomb(cards, wildRank, jokers, wilds, normals) {
 
 function _checkStraight(cards, wildRank, wilds, normals) {
     const n = cards.length;
-    if (n < 5) return null;
+    if (n !== 5) return null;
     if (normals.some(c => c.suit === 'joker')) return null;
 
     // 使用自然序数值检测连续（级牌保持在自然位置）
@@ -280,7 +282,7 @@ function _checkStraight(cards, wildRank, wilds, normals) {
 
 function _checkFlushPair(cards, wildRank, wilds, normals) {
     const n = cards.length;
-    if (n < 6 || n % 2 !== 0) return null;
+    if (n !== 6) return null;
     if (normals.some(c => c.suit === 'joker')) return null;
 
     const rankCounts = {};
@@ -352,7 +354,7 @@ function _checkFullHouse(cards, wildRank, wilds, normals) {
 // 双飞/钢板：连续三张（如 333+444，6张=2连三；333+444+555，9张=3连三）
 function _checkTripleStraight(cards, wildRank, wilds, normals) {
     const n = cards.length;
-    if (n < 6 || n % 3 !== 0) return null;
+    if (n !== 6) return null;
     if (normals.some(c => c.suit === 'joker')) return null;
 
     const k = n / 3; // 连续三张的组数
@@ -407,7 +409,7 @@ function _checkTripleStraight(cards, wildRank, wilds, normals) {
 
 function _checkStraightFlush(cards, wildRank, wilds, normals) {
     const n = cards.length;
-    if (n < 5) return null;
+    if (n !== 5) return null;
     if (normals.some(c => c.suit === 'joker')) return null;
 
     const suits = [...new Set(normals.map(c => c.suit))];
