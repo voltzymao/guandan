@@ -164,7 +164,19 @@ const RoomView = {
     _copyCode() {
         const code = store.room?.code;
         if (!code) return;
-        navigator.clipboard.writeText(code).then(() => toast.success('房间码已复制'));
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(code).then(() => toast.success('房间码已复制'));
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = code;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            toast.success('房间码已复制');
+        }
     },
 
     _esc(str) {
