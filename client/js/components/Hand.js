@@ -104,7 +104,7 @@ const Hand = {
             const dx = e.clientX - dragState.startX;
             const dy = e.clientY - dragState.startY;
 
-            if (!dragState.dragging && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+            if (!dragState.dragging && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
                 dragState.dragging = true;
             }
 
