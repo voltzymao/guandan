@@ -375,3 +375,122 @@
     color: var(--color-text-muted);
 }
 .btn-ghost:hover { border-color: var(--color-primary); color: var(--color-primary); background: rgba(233,69,96,0.08); }
+
+/* ==================== 金币/任务面板 ==================== */
+
+.coin-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: linear-gradient(135deg, #f5af19, #f12711);
+    color: #fff;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.checkin-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: rgba(245, 175, 25, 0.1);
+    border: 1px solid rgba(245, 175, 25, 0.25);
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.checkin-info {
+    font-size: 15px;
+    color: var(--color-text);
+    flex: 1;
+}
+
+.checkin-reward {
+    font-size: 14px;
+    color: var(--color-gold);
+    font-weight: 600;
+}
+
+.task-title {
+    margin: 0 0 12px;
+    font-size: 16px;
+    color: var(--color-text);
+}
+
+.task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.task-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+.task-item.claimed {
+    opacity: 0.6;
+}
+
+.task-info {
+    flex: 1;
+}
+
+.task-desc {
+    font-size: 14px;
+    color: var(--color-text);
+    margin-bottom: 4px;
+}
+
+.task-progress-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.task-progress-fill {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+.task-progress-fill.done {
+    background: #4caf50;
+}
+
+.task-reward {
+    font-size: 13px;
+    color: var(--color-gold);
+    white-space: nowrap;
+}
+
+.btn-task {
+    padding: 6px 14px;
+    font-size: 13px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.coin-result {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: rgba(245, 175, 25, 0.1);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--color-gold);
+}
+
+.coin-result.negative {
+    color: #f44336;
+    background: rgba(244, 67, 54, 0.1);
+}
+

@@ -31,7 +31,7 @@ router.post('/register', async (req, res, next) => {
         const token = signToken({ id: userId, username });
         const profile = User.getProfile(userId);
 
-        res.json({ token, user: { id: userId, username, isGuest: false, rating: profile.rating, current_level: profile.current_level, rank_tier: profile.rank_tier, games_played: profile.games_played, games_won: profile.games_won } });
+        res.json({ token, user: { id: userId, username, isGuest: false, rating: profile.rating, current_level: profile.current_level, rank_tier: profile.rank_tier, games_played: profile.games_played, games_won: profile.games_won, coins: profile.coins || 0 } });
     } catch (err) {
         next(err);
     }
@@ -63,7 +63,7 @@ router.post('/login', async (req, res, next) => {
         const token = signToken({ id: user.id, username: user.username });
         const profile = User.getProfile(user.id);
 
-        res.json({ token, user: { id: user.id, username: user.username, isGuest: false, rating: profile.rating, current_level: profile.current_level, rank_tier: profile.rank_tier, games_played: profile.games_played, games_won: profile.games_won } });
+        res.json({ token, user: { id: user.id, username: user.username, isGuest: false, rating: profile.rating, current_level: profile.current_level, rank_tier: profile.rank_tier, games_played: profile.games_played, games_won: profile.games_won, coins: profile.coins || 0 } });
     } catch (err) {
         next(err);
     }
@@ -79,7 +79,7 @@ router.post('/guest', (req, res, next) => {
         const token = signToken({ id: userId, username: uniqueName, isGuest: true });
         const profile = User.getProfile(userId);
 
-        res.json({ token, user: { id: userId, username: uniqueName, isGuest: true, rating: profile.rating, current_level: profile.current_level, rank_tier: profile.rank_tier, games_played: profile.games_played, games_won: profile.games_won } });
+        res.json({ token, user: { id: userId, username: uniqueName, isGuest: true, rating: profile.rating, current_level: profile.current_level, rank_tier: profile.rank_tier, games_played: profile.games_played, games_won: profile.games_won, coins: profile.coins || 0 } });
     } catch (err) {
         next(err);
     }

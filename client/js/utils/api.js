@@ -63,4 +63,12 @@ const api = {
     getHistoryDetail(gameId) { return this.get(`/history/${gameId}`); },
     getReplay(gameId) { return this.get(`/replay/${gameId}`); },
     getReplayRound(gameId, roundId) { return this.get(`/replay/${gameId}/${roundId}`); },
+
+    // 金币 / 任务
+    getCoinBalance() { return this.get('/coins'); },
+    getCoinTransactions(page = 1) { return this.get(`/coins/transactions?page=${page}`); },
+    doCheckin() { return this.post('/coins/checkin'); },
+    getCheckinStatus() { return this.get('/coins/checkin/status'); },
+    getTasks() { return this.get('/coins/tasks'); },
+    claimTask(taskKey) { return this.post(`/coins/tasks/${taskKey}/claim`); },
 };

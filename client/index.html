@@ -48,8 +48,10 @@
                     <button class="nav-btn active" data-panel="rooms">房间大厅</button>
                     <button class="nav-btn" data-panel="friends">好友</button>
                     <button class="nav-btn" data-panel="history">战绩</button>
+                    <button class="nav-btn" data-panel="tasks">任务</button>
                 </nav>
                 <div class="user-info">
+                    <span id="lobby-coins" class="coin-badge">🪙 0</span>
                     <span id="lobby-username"></span>
                     <span id="lobby-rating" class="rating-badge"></span>
                     <button id="btn-logout" class="btn btn-ghost btn-sm">退出</button>
@@ -87,6 +89,21 @@
                 <div id="panel-history" class="panel hidden">
                     <div id="history-list" class="history-list">
                         <p class="empty-hint">暂无战绩</p>
+                    </div>
+                </div>
+
+                <!-- 任务面板 -->
+                <div id="panel-tasks" class="panel hidden">
+                    <!-- 签到区 -->
+                    <div class="checkin-section">
+                        <div class="checkin-info" id="checkin-status">连续签到：0 天</div>
+                        <button id="btn-checkin" class="btn btn-primary">每日签到</button>
+                        <div id="checkin-reward" class="checkin-reward hidden"></div>
+                    </div>
+                    <!-- 任务区 -->
+                    <h3 class="task-title">每日任务</h3>
+                    <div id="task-list" class="task-list">
+                        <p class="empty-hint">加载中...</p>
                     </div>
                 </div>
             </main>

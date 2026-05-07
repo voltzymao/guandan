@@ -27,6 +27,9 @@ const LobbyView = {
         // 快速匹配
         document.getElementById('btn-quick-match').addEventListener('click', () => this._toggleMatch());
 
+        // 签到
+        document.getElementById('btn-checkin').addEventListener('click', () => this._doCheckin());
+
         // 好友搜索
         document.getElementById('btn-search-user').addEventListener('click', () => this._searchUser());
         document.getElementById('input-search-user').addEventListener('keydown', (e) => {
@@ -70,6 +73,7 @@ const LobbyView = {
         const ratingEl = document.getElementById('lobby-rating');
         const rankLabel = ({ bronze: '🥉', silver: '🥈', gold: '🥇', diamond: '💎', master: '👑' })[user.rank_tier] || '';
         ratingEl.textContent = `Lv.${user.current_level || '2'} · ${rankLabel} ${user.rating || 1000}分`;
+        document.getElementById('lobby-coins').textContent = `🪙 ${user.coins || 0}`;
 
         // 连接 Socket
         socketManager.connect(api.getToken());
@@ -103,6 +107,7 @@ const LobbyView = {
 
         if (panel === 'friends') this._loadFriends();
         if (panel === 'history') { this._historyPage = 1; this._loadHistory(); }
+        if (panel === 'tasks') this._loadTasks();
     },
 
     async _loadRooms() {
@@ -254,6 +259,102 @@ const LobbyView = {
             toast.success('好友请求已发送');
         } catch (err) {
             toast.error(err.message || '发送失败');
+        }
+    },
+
+    // ==================== 任务 & 签到 ====================
+
+    async _loadTasks() {
+        try {
+            const [checkinData, tasksData] = await Promise.all([
+                api.getCheckinStatus(),
+                api.getTasks(),
+            ]);
+            this._renderCheckin(checkinData);
+            this._renderTasks(tasksData.tasks || []);
+        } catch (e) {
+            document.getElementById('task-list').innerHTML = '<p class="empty-hint">加载失败</p>';
+        }
+    },
+
+    _renderCheckin(data) {
+        const statusEl = document.getElementById('checkin-status');
+        const rewardEl = document.getElementById('checkin-reward');
+        const btn = document.getElementById('btn-checkin');
+
+        if (data.canCheckin) {
+            statusEl.textContent = `连续签到：${data.dayStreak} 天 → 第 ${data.nextStreak} 天奖励`;
+            btn.classList.remove('hidden');
+            btn.textContent = `每日签到 (+${data.nextReward})`;
+            btn.disabled = false;
+            rewardEl.classList.add('hidden');
+        } else {
+            statusEl.textContent = `今日已签到 ✓ （连续 ${data.dayStreak} 天）`;
+            btn.classList.add('hidden');
+            rewardEl.classList.remove('hidden');
+            rewardEl.textContent = `今日获得 +${data.todayRecord?.coins_rewarded || 0} 🪙`;
+        }
+    },
+
+    _renderTasks(tasks) {
+        const list = document.getElementById('task-list');
+        if (tasks.length === 0) {
+            list.innerHTML = '<p class="empty-hint">暂无任务</p>';
+            return;
+        }
+        list.innerHTML = '';
+        tasks.forEach(t => {
+            const done = t.progress >= t.target;
+            const pct = Math.min(100, (t.progress / t.target) * 100);
+
+            const item = document.createElement('div');
+            item.className = `task-item ${t.claimed ? 'claimed' : ''}`;
+            item.innerHTML = `
+                <div class="task-info">
+                    <div class="task-desc">${this._esc(t.description)} (${t.progress}/${t.target})</div>
+                    <div class="task-progress-bar">
+                        <div class="task-progress-fill ${done ? 'done' : ''}" style="width:${pct}%"></div>
+                    </div>
+                </div>
+                <span class="task-reward">+${t.reward} 🪙</span>
+                ${t.claimed
+                    ? '<span class="btn btn-ghost btn-sm">已领取</span>'
+                    : (done
+                        ? '<button class="btn btn-primary btn-task" data-task="' + t.key + '">领取</button>'
+                        : '<span class="btn btn-ghost btn-sm">未完成</span>')
+                }
+            `;
+
+            const claimBtn = item.querySelector('.btn-task');
+            if (claimBtn) {
+                claimBtn.addEventListener('click', () => this._claimTask(t.key));
+            }
+            list.appendChild(item);
+        });
+    },
+
+    async _doCheckin() {
+        const btn = document.getElementById('btn-checkin');
+        btn.disabled = true;
+        try {
+            const data = await api.doCheckin();
+            document.getElementById('lobby-coins').textContent = `🪙 ${data.coins}`;
+            toast.success(`签到成功！+${data.reward} 🪙（连续 ${data.dayStreak} 天）`);
+            this._loadTasks();
+        } catch (err) {
+            toast.error(err.message || '签到失败');
+            btn.disabled = false;
+        }
+    },
+
+    async _claimTask(taskKey) {
+        try {
+            const data = await api.claimTask(taskKey);
+            document.getElementById('lobby-coins').textContent = `🪙 ${data.coins}`;
+            toast.success(`任务奖励 +${data.reward} 🪙`);
+            this._loadTasks();
+        } catch (err) {
+            toast.error(err.message || '领取失败');
         }
     },
 

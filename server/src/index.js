@@ -26,6 +26,7 @@ const lobbyRouter = require('./routes/lobby');
 const friendsRouter = require('./routes/friends');
 const historyRouter = require('./routes/history');
 const replayRouter = require('./routes/replay');
+const coinsRouter = require('./routes/coins');
 
 // 中间件
 const { authMiddleware } = require('./middleware/auth');
@@ -73,6 +74,7 @@ app.use('/api/lobby', lobbyRouter);
 app.use('/api/friends', friendsRouter);
 app.use('/api/history', authMiddleware, historyRouter);
 app.use('/api/replay', authMiddleware, replayRouter);
+app.use('/api/coins', authMiddleware, coinsRouter);
 
 // 健康检查
 app.get('/health', (req, res) => {

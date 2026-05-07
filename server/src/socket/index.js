@@ -534,6 +534,8 @@ function handleGameEnd(io, gameId, roomCode, gameState) {
     });
 
     const room = rooms.get(roomCode);
+    const coinResults = []; // 收集金币变化用于广播
+
     if (room) {
         const LEVELS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
         const RANK_TIERS = [
@@ -544,6 +546,7 @@ function handleGameEnd(io, gameId, roomCode, gameState) {
             { name: 'master', minRating: 2100 },
         ];
         const winnerTeamLevel = levelResult.winnerTeam === 'A' ? levelResult.teamALevel : levelResult.teamBLevel;
+        const headFinishId = gameState.finishOrder[0];
 
         for (const player of room.players) {
             if (player.isAI) continue;
@@ -564,6 +567,22 @@ function handleGameEnd(io, gameId, roomCode, gameState) {
                     const winIdx = LEVELS.indexOf(winnerTeamLevel);
                     if (winIdx > curIdx) newLevel = winnerTeamLevel;
                 }
+
+                // 金币结算
+                let coinDelta = 0;
+                let coinType = '';
+                if (isWinner) {
+                    coinDelta = levelResult.isDoubleDown ? 50 : 30;
+                    coinType = 'game_win';
+                    if (player.id === headFinishId) coinDelta += 10; // 头游奖励
+                } else {
+                    coinDelta = -10;
+                    coinType = 'game_lose';
+                }
+                // 确保不会扣到负数（addCoins 内部已做 Math.max(0, ...)）
+                const newCoins = User.addCoins(player.id, coinDelta, coinType, gameId.toString());
+                coinResults.push({ userId: player.id, coinDelta, coins: newCoins });
+
                 User.updateStats(player.id, {
                     games_played: stats.games_played + 1,
                     games_won: stats.games_won + (isWinner ? 1 : 0),
@@ -571,6 +590,11 @@ function handleGameEnd(io, gameId, roomCode, gameState) {
                     current_level: newLevel,
                     rank_tier: newTier,
                 });
+
+                // 更新每日任务进度
+                User.updateTaskProgress(player.id, 'play_3_games', 1);
+                if (isWinner) User.updateTaskProgress(player.id, 'win_2_games', 1);
+                if (levelResult.isDoubleDown && isWinner) User.updateTaskProgress(player.id, 'double_down', 1);
             }
         }
     }
@@ -578,6 +602,8 @@ function handleGameEnd(io, gameId, roomCode, gameState) {
     io.to(roomCode).emit('game:end', {
         winnerTeam: levelResult.winnerTeam,
         finishOrder: gameState.finishOrder,
+        isDoubleDown: levelResult.isDoubleDown,
+        coinResults,
     });
 
     games.delete(gameId);
