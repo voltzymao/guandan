@@ -128,8 +128,15 @@ const GameView = {
             this._myIndex = state.players.findIndex(p => p.id === store.user.id);
         }
 
-        // 更新手牌
-        if (state.myHand) store.setHand(state.myHand);
+        // 只在手牌内容真正变化时才重置并重新渲染
+        if (state.myHand) {
+            const newKey = state.myHand.map(c => store._cardKey(c)).sort().join(',');
+            const oldKey = store.myHand.map(c => store._cardKey(c)).sort().join(',');
+            if (newKey !== oldKey) {
+                store.setHand(state.myHand);
+                this._renderHand();
+            }
+        }
 
         this._renderAll(state);
 
@@ -314,7 +321,7 @@ const GameView = {
                     confirmBtn.disabled = false;
                     Hand.renderTribute(leftArea, store.myHand,
                         (c) => { this._tributeSelected = c; confirmBtn.disabled = false; },
-                        card.id
+                        HandAnalyzer.cardKey(card)
                     );
                 }, null
             );
@@ -339,7 +346,7 @@ const GameView = {
                     confirmBtn.disabled = false;
                     Hand.renderTribute(rightArea, store.myHand,
                         (c) => { this._tributeSelected = c; confirmBtn.disabled = false; },
-                        card.id
+                        HandAnalyzer.cardKey(card)
                     );
                 }, null
             );
@@ -383,12 +390,8 @@ const GameView = {
             if (countEl) countEl.textContent = `${cnt}张`;
 
             const handEl = document.getElementById(`hand-${dir}`);
-            if (handEl) {
-                if (dir === 'bottom') {
-                    this._renderHand();
-                } else {
-                    Hand.renderBack(handEl, cnt, dir === 'left' || dir === 'right');
-                }
+            if (handEl && dir !== 'bottom') {
+                Hand.renderBack(handEl, cnt, dir === 'left' || dir === 'right');
             }
         });
 
@@ -414,8 +417,19 @@ const GameView = {
 
     _toggleCard(card) {
         store.toggleCard(card);
-        if (!this._dragActive) this._renderHand();
+        this._updateCardSelection(card);
         document.getElementById('btn-play').disabled = store.selectedCards.length === 0;
+    },
+
+    /** 直接更新 DOM 中对应卡片的选中状态，避免整手重渲 */
+    _updateCardSelection(card) {
+        const key = store._cardKey(card);
+        const isSelected = store.selectedCards.some(c => store._cardKey(c) === key);
+        document.querySelectorAll('#hand-bottom .card').forEach(el => {
+            if (el.dataset.cardId === key) {
+                el.classList.toggle('selected', isSelected);
+            }
+        });
     },
 
     /** 框选回调：批量添加选中的牌 */
@@ -423,9 +437,11 @@ const GameView = {
         cards.forEach(c => {
             const key = store._cardKey(c);
             const already = store.selectedCards.some(s => store._cardKey(s) === key);
-            if (!already) store.selectedCards.push(c);
+            if (!already) {
+                store.selectedCards.push(c);
+                this._updateCardSelection(c);
+            }
         });
-        this._renderHand();
         document.getElementById('btn-play').disabled = store.selectedCards.length === 0;
     },
 
@@ -484,14 +500,17 @@ const GameView = {
         if (allSelected) {
             const keys = new Set(cards.map(c => store._cardKey(c)));
             store.selectedCards = store.selectedCards.filter(s => !keys.has(store._cardKey(s)));
+            cards.forEach(c => this._updateCardSelection(c));
         } else {
             cards.forEach(c => {
                 const key = store._cardKey(c);
                 const already = store.selectedCards.some(s => store._cardKey(s) === key);
-                if (!already) store.selectedCards.push(c);
+                if (!already) {
+                    store.selectedCards.push(c);
+                    this._updateCardSelection(c);
+                }
             });
         }
-        this._renderHand();
         document.getElementById('btn-play').disabled = store.selectedCards.length === 0;
     },
 
@@ -552,15 +571,18 @@ const GameView = {
     _onHint(data) {
         const cards = data.cards;
         store.clearSelection();
+        document.querySelectorAll('#hand-bottom .card').forEach(el => el.classList.remove('selected'));
         if (cards && cards.length > 0) {
-            cards.forEach(c => store.toggleCard(c));
+            cards.forEach(c => {
+                store.toggleCard(c);
+                this._updateCardSelection(c);
+            });
             document.getElementById('btn-play').disabled = false;
             toast.info('已选中建议的牌');
         } else {
             document.getElementById('btn-play').disabled = true;
             toast.info('建议过牌');
         }
-        this._renderHand();
     },
 
     _sendChat() {

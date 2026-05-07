@@ -117,7 +117,7 @@ class CardEvaluator {
             return r || { type: null, valid: false };
         }
 
-        // 顺子（固定5张）
+        // 顺子（固定5张连续单张）
         if (n === 5) {
             const st = _checkStraight(cards, wildRank, wilds, normals);
             if (st) return st;
