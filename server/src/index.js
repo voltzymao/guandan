@@ -58,6 +58,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 
+// 信任 Nginx 反向代理（生产环境需要准确获取客户端 IP）
+app.set('trust proxy', 1);
+
 // 速率限制
 const limiter = rateLimit({
     windowMs: env.RATE_LIMIT_WINDOW_MS,
