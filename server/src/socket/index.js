@@ -480,9 +480,24 @@ function handleRoundEnd(io, gameId, roomCode, gameState) {
         teamBLevel: gameState.teamBLevel,
     });
 
+    // 计算等级变化和胜利队伍
+    const levelResult = LevelManager.calculateLevelChange(
+        gameState.finishOrder,
+        gameState.teams,
+        gameState.teamALevel,
+        gameState.teamBLevel,
+        gameState.teamAFailA,
+        gameState.teamBFailA
+    );
+
     setTimeout(() => {
         const room = rooms.get(roomCode);
         if (!room) return;
+
+        // 每局只有一个统一的级别牌：胜利队伍的当前级别
+        const currentLevel = levelResult.winnerTeam === 'A'
+            ? gameState.teamALevel
+            : gameState.teamBLevel;
 
         const newGameState = new GameState({
             gameId,
@@ -491,6 +506,9 @@ function handleRoundEnd(io, gameId, roomCode, gameState) {
             playerMeta: gameState.playerMeta,
             teamALevel: gameState.teamALevel,
             teamBLevel: gameState.teamBLevel,
+            teamAFailA: gameState.teamAFailA,
+            teamBFailA: gameState.teamBFailA,
+            currentLevel,
             roundNumber: gameState.roundNumber + 1,
             lastFinishOrder: gameState.finishOrder,
         });
@@ -525,7 +543,9 @@ function handleGameEnd(io, gameId, roomCode, gameState) {
         gameState.finishOrder,
         gameState.teams,
         gameState.teamALevel,
-        gameState.teamBLevel
+        gameState.teamBLevel,
+        gameState.teamAFailA,
+        gameState.teamBFailA
     );
 
     Game.updateStatus(gameId, 'finished', {
@@ -705,7 +725,7 @@ function scheduleAITribute(io, gameId, roomCode, gameState) {
                 if (!gs || gs.phase !== PHASES.RETURN_TRIBUTE) return;
                 if (gs.pendingReturns[retId] !== null) return;
 
-                const wildRank = gs.getPlayerWildRank(retId);
+                const wildRank = gs.currentLevel;
                 const returnCard = AIPlayer.decideReturnTribute(gs.hands[retId], wildRank);
                 const result = gs.returnTribute(retId, returnCard);
 

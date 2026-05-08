@@ -24,15 +24,19 @@ const PHASES = {
 };
 
 class GameState {
-    constructor({ gameId, players, teams, playerMeta, teamALevel = '2', teamBLevel = '2', roundNumber = 1, lastFinishOrder = null }) {
+    constructor({ gameId, players, teams, playerMeta, teamALevel = '2', teamBLevel = '2', currentLevel = null, roundNumber = 1, lastFinishOrder = null, teamAFailA = 0, teamBFailA = 0 }) {
         this.gameId = gameId;
         this.players = players; // [userId, userId, userId, userId] 座位顺序
         this.teams = teams;     // { teamA: [id, id], teamB: [id, id] }
         this.playerMeta = playerMeta || {}; // { userId: { username, isAI } }
         this.teamALevel = teamALevel;
         this.teamBLevel = teamBLevel;
+        // 每局只有一个统一的级别牌（胜利队伍的当前级别）
+        this.currentLevel = currentLevel || teamALevel;
         this.roundNumber = roundNumber;
         this.lastFinishOrder = lastFinishOrder;
+        this.teamAFailA = teamAFailA;
+        this.teamBFailA = teamBFailA;
 
         this.phase = PHASES.WAITING;
         this.hands = {};
@@ -47,13 +51,6 @@ class GameState {
         this.tributeInfo = null;
         this.pendingTributes = {};
         this.pendingReturns = {};
-    }
-
-    /**
-     * 获取指定玩家的级别（逢人配）
-     */
-    getPlayerWildRank(userId) {
-        return this.teams.teamA.includes(userId) ? this.teamALevel : this.teamBLevel;
     }
 
     /**
@@ -132,6 +129,13 @@ class GameState {
             return { success: false, error: '你没有这张牌' };
         }
 
+        // 验证进贡牌合法性：必须是最大的非级牌非王牌（逢人配不可进贡）
+        const wildRank = this.currentLevel;
+        const validation = TributeSystem.validateTribute(card, this.hands[userId], wildRank);
+        if (!validation.valid) {
+            return { success: false, error: validation.error };
+        }
+
         const tribute = this.tributeInfo.tributes.find(t => t.from === userId);
         if (!tribute) return { success: false, error: '找不到对应的进贡关系' };
 
@@ -170,8 +174,14 @@ class GameState {
             return { success: false, error: '你已经还贡了' };
         }
 
-        if (!TributeSystem.validateReturn(card, this.hands[userId], this.getPlayerWildRank(userId))) {
+        const wildRank = this.currentLevel;
+        if (!TributeSystem.validateReturn(card, this.hands[userId], wildRank)) {
             return { success: false, error: '还贡牌不合法（不能还级牌或大王）' };
+        }
+        // 还贡牌必须 ≤10
+        const returnValidation = TributeSystem.validateReturnRank(card, wildRank);
+        if (!returnValidation.valid) {
+            return { success: false, error: returnValidation.error };
         }
 
         const tribute = this.tributeInfo.tributes.find(t => t.to === userId);
@@ -252,7 +262,7 @@ class GameState {
         }
 
         // 判断牌型
-        const wildRank = this.getPlayerWildRank(userId);
+        const wildRank = this.currentLevel;
         const evalResult = CardEvaluator.evaluate(cards, wildRank);
         if (!evalResult.valid) {
             return { success: false, error: '无效的牌型' };
@@ -260,8 +270,7 @@ class GameState {
 
         // 检查是否能压过上家
         if (this.lastPlay) {
-            const lastWildRank = this.getPlayerWildRank(this.lastPlayerId);
-            const lastEval = CardEvaluator.evaluate(this.lastPlay, lastWildRank);
+            const lastEval = CardEvaluator.evaluate(this.lastPlay, this.currentLevel);
             if (CardEvaluator.compare(evalResult, lastEval) <= 0) {
                 return { success: false, error: '出的牌不够大' };
             }
@@ -303,10 +312,14 @@ class GameState {
                         this.finishOrder,
                         this.teams,
                         this.teamALevel,
-                        this.teamBLevel
+                        this.teamBLevel,
+                        this.teamAFailA,
+                        this.teamBFailA
                     );
                     this.teamALevel = levelResult.teamALevel;
                     this.teamBLevel = levelResult.teamBLevel;
+                    this.teamAFailA = levelResult.teamAFailA;
+                    this.teamBFailA = levelResult.teamBFailA;
                     events.push({ type: 'round_end', finishOrder: this.finishOrder, levelResult });
                     if (levelResult.isGameOver) {
                         this.phase = PHASES.GAME_END;
@@ -329,11 +342,15 @@ class GameState {
                     this.finishOrder,
                     this.teams,
                     this.teamALevel,
-                    this.teamBLevel
+                    this.teamBLevel,
+                    this.teamAFailA,
+                    this.teamBFailA
                 );
 
                 this.teamALevel = levelResult.teamALevel;
                 this.teamBLevel = levelResult.teamBLevel;
+                this.teamAFailA = levelResult.teamAFailA;
+                this.teamBFailA = levelResult.teamBFailA;
 
                 events.push({ type: 'round_end', finishOrder: this.finishOrder, levelResult });
 
@@ -343,20 +360,6 @@ class GameState {
                 }
 
                 return { success: true, events };
-            }
-
-            // 接风：出完牌的人是上一个出牌的人 → 对家接风
-            if (this.lastPlayerId === userId) {
-                this.lastPlay = null;
-                this.lastPlayerId = null;
-                this.passCount = 0;
-                const teammate = this._getTeammate(userId);
-                if (teammate && !this.finishOrder.includes(teammate)) {
-                    this.currentPlayer = teammate;
-                    events.push({ type: 'next_turn', nextPlayer: this.currentPlayer });
-                    events.push({ type: 'jie_feng', userId: teammate, fromUser: userId });
-                    return { success: true, events };
-                }
             }
         }
 
@@ -429,23 +432,29 @@ class GameState {
             roundNumber: this.roundNumber,
             teamALevel: this.teamALevel,
             teamBLevel: this.teamBLevel,
+            teamAFailA: this.teamAFailA,
+            teamBFailA: this.teamBFailA,
             currentPlayer: this.currentPlayer,
             lastPlay: this.lastPlay,
             lastPlayerId: this.lastPlayerId,
             finishOrder: this.finishOrder,
             players,
-            myHand: CardDeck.sortHand(this.hands[userId] || [], this.getPlayerWildRank(userId)),
+            myHand: CardDeck.sortHand(this.hands[userId] || [], this.currentLevel),
             handCounts,
-            levelRank: this.getPlayerWildRank(userId),
+            levelRank: this.currentLevel,
             tributeInfo: this.tributeInfo ? {
                 type: this.tributeInfo.type,
                 tributes: this.tributeInfo.tributes.map(t => ({
                     from: t.from,
                     to: t.to,
-                    card: (t.to === userId || t.from === userId) ? t.card : null,
+                    card: t.card,
                 })),
                 pendingTributes: this.pendingTributes ? Object.keys(this.pendingTributes) : [],
                 pendingReturns: this.tributeInfo.pendingReturns,
+                returns: Object.entries(this.pendingReturns || {}).map(([returnerId, card]) => ({
+                    from: Number(returnerId),
+                    card,
+                })),
             } : null,
         };
     }
@@ -460,6 +469,8 @@ class GameState {
             teams: this.teams,
             teamALevel: this.teamALevel,
             teamBLevel: this.teamBLevel,
+            teamAFailA: this.teamAFailA,
+            teamBFailA: this.teamBFailA,
             roundNumber: this.roundNumber,
             phase: this.phase,
             hands: this.hands,

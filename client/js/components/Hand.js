@@ -118,8 +118,7 @@ const Hand = {
                         if (card) {
                             onToggle(card);
                             changedCards.push(card);
-                            // 即时视觉反馈：直接切换 DOM 元素的 selected 类
-                            cardEl.classList.toggle('selected');
+                            // _toggleCard 中的 _updateCardSelection 已负责 DOM 更新
                         }
                     }
                 }
@@ -131,11 +130,12 @@ const Hand = {
             container.style.userSelect = '';
             const wasDragging = dragState.dragging;
             dragState = null;
-            if (wasDragging) {
+            // 只在真正拖动并扫过卡片时才 suppress click 和触发 onDragEnd
+            if (wasDragging && changedCards.length > 0) {
                 suppressClickFlag = true;
                 setTimeout(() => { suppressClickFlag = false; }, 0);
+                if (onDragEnd) onDragEnd(changedCards, toggledKeys);
             }
-            if (onDragEnd) onDragEnd(changedCards, toggledKeys);
         };
 
         const suppressClick = (e) => {

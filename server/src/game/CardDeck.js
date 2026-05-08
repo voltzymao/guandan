@@ -97,22 +97,37 @@ class CardDeck {
     }
 
     /**
-     * 获取手牌中最大的非级牌非王牌（用于进贡）
+     * 获取手牌中用于进贡的最大牌
+     * 规则：进贡当前手牌中最大的牌（逢人配除外）
+     * 特殊情况：没有大小王，且只有一张逢人配，且最大牌是级牌 → 找次一级的非级牌
      */
     static getBestTributeCard(hand, wildRank) {
-        const eligible = hand.filter(c => c.suit !== 'joker' && c.rank !== wildRank);
-        if (eligible.length === 0) {
-            // 只有级牌或王，给最大的
-            const sorted = [...hand].sort((a, b) => {
-                if (a.suit === 'joker' && b.suit === 'joker') return a.rank === 'red_joker' ? 1 : -1;
-                if (a.suit === 'joker') return 1;
-                if (b.suit === 'joker') return -1;
-                return RANKS.indexOf(a.rank) - RANKS.indexOf(b.rank);
-            });
-            return sorted[sorted.length - 1];
+        // 排除逢人配（红桃级牌）
+        const eligible = hand.filter(c => !(c.suit === 'hearts' && c.rank === wildRank));
+
+        // 排序：王牌 > 其他牌（按 rank）
+        const sorted = eligible.sort((a, b) => {
+            if (a.suit === 'joker' && b.suit === 'joker') return a.rank === 'red_joker' ? 1 : -1;
+            if (a.suit === 'joker') return 1;
+            if (b.suit === 'joker') return -1;
+            return RANKS.indexOf(a.rank) - RANKS.indexOf(b.rank);
+        });
+
+        const maxCard = sorted[sorted.length - 1];
+
+        // 特殊情况：没有大小王，只有一张逢人配，最大牌是级牌 → 不选级牌
+        const hasJoker = eligible.some(c => c.suit === 'joker');
+        const wildHeartsCount = hand.filter(c => c.suit === 'hearts' && c.rank === wildRank).length;
+
+        if (!hasJoker && wildHeartsCount === 1 && maxCard.rank === wildRank) {
+            const nonLevelCards = eligible.filter(c => c.rank !== wildRank && c.suit !== 'joker');
+            if (nonLevelCards.length > 0) {
+                const nonLevelSorted = nonLevelCards.sort((a, b) => RANKS.indexOf(a.rank) - RANKS.indexOf(b.rank));
+                return nonLevelSorted[nonLevelSorted.length - 1];
+            }
         }
-        const sorted = eligible.sort((a, b) => RANKS.indexOf(a.rank) - RANKS.indexOf(b.rank));
-        return sorted[sorted.length - 1];
+
+        return maxCard;
     }
 }
 

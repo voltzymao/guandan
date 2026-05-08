@@ -20,9 +20,11 @@ class LevelManager {
      * @param {Object} teams { teamA: [userId, userId], teamB: [userId, userId] }
      * @param {string} teamALevel 当前A队等级
      * @param {string} teamBLevel 当前B队等级
-     * @returns {{ teamALevel, teamBLevel, winnerTeam, levelUp, isGameOver, isDoubleDown }}
+     * @param {number} teamAFailA A队A级失败次数
+     * @param {number} teamBFailA B队A级失败次数
+     * @returns {{ teamALevel, teamBLevel, winnerTeam, levelUp, isGameOver, isDoubleDown, teamAFailA, teamBFailA, resetToLevel2 }}
      */
-    static calculateLevelChange(finishOrder, teams, teamALevel, teamBLevel) {
+    static calculateLevelChange(finishOrder, teams, teamALevel, teamBLevel, teamAFailA = 0, teamBFailA = 0) {
         const [first, second, third, fourth] = finishOrder;
 
         const teamASet = new Set(teams.teamA);
@@ -33,6 +35,9 @@ class LevelManager {
         const isDoubleDown = firstTeam === secondTeam;
 
         let levelUp = 0;
+        let isGameOver = false;
+        let failA = winnerTeam === 'A' ? teamAFailA : teamBFailA;
+        let resetToLevel2 = false;
 
         if (isDoubleDown) {
             levelUp = 3;
@@ -48,13 +53,38 @@ class LevelManager {
         }
 
         const currentLevel = winnerTeam === 'A' ? teamALevel : teamBLevel;
-        const newLevel = advanceLevel(currentLevel, levelUp);
+
+        // A级特殊处理
+        if (currentLevel === 'A') {
+            const winnerTeamMembers = winnerTeam === 'A' ? teams.teamA : teams.teamB;
+            const partner = winnerTeamMembers.find(id => id !== first);
+            const partnerRank = finishOrder.indexOf(partner);
+
+            // 过关条件：头游且对家不是末游（对家是二游或三游）
+            if (partnerRank === 1 || partnerRank === 2) {
+                isGameOver = true;
+            } else {
+                // 未过关：对家是末游
+                failA++;
+                if (failA >= 2) {
+                    resetToLevel2 = true;
+                    failA = 0;
+                }
+                levelUp = 0; // A级没过不升级
+            }
+        }
+
+        let newLevel;
+        if (resetToLevel2) {
+            newLevel = '2';
+        } else {
+            newLevel = advanceLevel(currentLevel, levelUp);
+        }
 
         const newTeamALevel = winnerTeam === 'A' ? newLevel : teamALevel;
         const newTeamBLevel = winnerTeam === 'B' ? newLevel : teamBLevel;
-
-        // 游戏结束条件：当前等级是A且赢了
-        const isGameOver = currentLevel === 'A';
+        const newTeamAFailA = winnerTeam === 'A' ? failA : teamAFailA;
+        const newTeamBFailA = winnerTeam === 'B' ? failA : teamBFailA;
 
         return {
             winnerTeam,
@@ -63,6 +93,9 @@ class LevelManager {
             teamBLevel: newTeamBLevel,
             isGameOver,
             isDoubleDown,
+            teamAFailA: newTeamAFailA,
+            teamBFailA: newTeamBFailA,
+            resetToLevel2,
         };
     }
 

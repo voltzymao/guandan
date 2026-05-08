@@ -155,10 +155,20 @@ class CardEvaluator {
         if (!isBomb1 && isBomb2) return -1;
 
         if (isBomb1 && isBomb2) {
-            // 同花顺 > 炸弹
-            if (eval1.type === HAND_TYPES.STRAIGHT_FLUSH && eval2.type === HAND_TYPES.BOMB) return 1;
-            if (eval1.type === HAND_TYPES.BOMB && eval2.type === HAND_TYPES.STRAIGHT_FLUSH) return -1;
-            // 同类型炸弹：先比张数，再比点数
+            // 大炸弹(6张+) > 同花顺 > 小炸弹(4-5张)
+            const isBigBomb1 = eval1.type === HAND_TYPES.BOMB && eval1.length >= 6;
+            const isBigBomb2 = eval2.type === HAND_TYPES.BOMB && eval2.length >= 6;
+            const isSmallBomb1 = eval1.type === HAND_TYPES.BOMB && eval1.length < 6;
+            const isSmallBomb2 = eval2.type === HAND_TYPES.BOMB && eval2.length < 6;
+            const isSF1 = eval1.type === HAND_TYPES.STRAIGHT_FLUSH;
+            const isSF2 = eval2.type === HAND_TYPES.STRAIGHT_FLUSH;
+
+            if (isBigBomb1 && isSF2) return 1;
+            if (isSF1 && isBigBomb2) return -1;
+            if (isSF1 && isSmallBomb2) return 1;
+            if (isSmallBomb1 && isSF2) return -1;
+
+            // 同类型：先比张数，再比点数
             if (eval1.length !== eval2.length) return eval1.length > eval2.length ? 1 : -1;
             return eval1.rank > eval2.rank ? 1 : eval1.rank < eval2.rank ? -1 : 0;
         }
@@ -246,34 +256,46 @@ function _checkStraight(cards, wildRank, wilds, normals) {
     if (n !== 5) return null;
     if (normals.some(c => c.suit === 'joker')) return null;
 
-    // 使用自然序数值检测连续（级牌保持在自然位置）
-    const normalVals = normals.map(c => seqValue(c.rank)).sort((a, b) => a - b);
-    if (new Set(normalVals).size !== normalVals.length) return null; // 有重复
-
     const wc = wilds.length;
-    const minV = normalVals[0] || 0;
-    const maxV = normalVals[normalVals.length - 1] || 0;
 
-    if (normalVals.length === 0) {
-        return null;
+    // 尝试 A 作为 14（默认）
+    const result1 = _tryStraight(normals, wc, n, wildRank, false);
+    if (result1) return result1;
+
+    // 如果有 A，再尝试 A 作为 1（A2345）
+    if (normals.some(c => c.rank === 'A')) {
+        const result2 = _tryStraight(normals, wc, n, wildRank, true);
+        if (result2) return result2;
     }
 
+    return null;
+}
+
+function _tryStraight(normals, wc, n, wildRank, aAsOne) {
+    const normalVals = normals.map(c => {
+        if (c.rank === 'A') return aAsOne ? 1 : seqValue(c.rank);
+        return seqValue(c.rank);
+    }).sort((a, b) => a - b);
+
+    if (new Set(normalVals).size !== normalVals.length) return null;
+    if (normalVals.length === 0) return null;
+
+    const minV = normalVals[0];
+    const maxV = normalVals[normalVals.length - 1];
     const range = maxV - minV + 1;
     const gaps = range - normalVals.length;
 
     if (gaps <= wc) {
         const extra = wc - gaps;
-        // 向高端扩展
         const newMax = maxV + extra;
         if (newMax - minV + 1 === n && newMax <= 14) {
             const topRank = RANKS[newMax - 2];
-            return { type: HAND_TYPES.STRAIGHT, rank: rankValue(topRank, wildRank), length: n, valid: true };
+            return { type: HAND_TYPES.STRAIGHT, rank: seqValue(topRank), length: n, valid: true };
         }
-        // 向低端扩展
         const newMin = minV - extra;
         if (maxV - newMin + 1 === n && newMin >= 2) {
             const topRank = RANKS[maxV - 2];
-            return { type: HAND_TYPES.STRAIGHT, rank: rankValue(topRank, wildRank), length: n, valid: true };
+            return { type: HAND_TYPES.STRAIGHT, rank: seqValue(topRank), length: n, valid: true };
         }
     }
 
@@ -306,7 +328,7 @@ function _checkFlushPair(cards, wildRank, wilds, normals) {
     }
 
     const topRank = RANKS[pairVals[pairVals.length - 1] - 2];
-    return { type: HAND_TYPES.FLUSH_PAIR, rank: rankValue(topRank, wildRank), length: n, valid: true };
+    return { type: HAND_TYPES.FLUSH_PAIR, rank: seqValue(topRank), length: n, valid: true };
 }
 
 function _checkFullHouse(cards, wildRank, wilds, normals) {
@@ -348,7 +370,7 @@ function _checkFullHouse(cards, wildRank, wilds, normals) {
     const tripleRank = findTripleRank();
     if (!tripleRank) return null;
 
-    return { type: HAND_TYPES.FULL_HOUSE, rank: rankValue(tripleRank, wildRank), length: 5, valid: true };
+    return { type: HAND_TYPES.FULL_HOUSE, rank: seqValue(tripleRank), length: 5, valid: true };
 }
 
 // 双飞/钢板：连续三张（如 333+444，6张=2连三；333+444+555，9张=3连三）
@@ -392,7 +414,7 @@ function _checkTripleStraight(cards, wildRank, wilds, normals) {
             const topRank = sortedRanks[start + k - 1];
             return {
                 type: HAND_TYPES.TRIPLE_STRAIGHT,
-                rank: rankValue(topRank, wildRank),
+                rank: seqValue(topRank),
                 length: n,
                 valid: true,
             };
@@ -401,7 +423,7 @@ function _checkTripleStraight(cards, wildRank, wilds, normals) {
 
     // 全逢人配双飞（所有牌都是逢人配）
     if (normals.length === 0 && wc === n) {
-        return { type: HAND_TYPES.TRIPLE_STRAIGHT, rank: 15, length: n, valid: true };
+        return { type: HAND_TYPES.TRIPLE_STRAIGHT, rank: seqValue(wildRank), length: n, valid: true };
     }
 
     return null;
@@ -415,10 +437,28 @@ function _checkStraightFlush(cards, wildRank, wilds, normals) {
     const suits = [...new Set(normals.map(c => c.suit))];
     if (suits.length > 1) return null;
 
-    const normalVals = normals.map(c => seqValue(c.rank)).sort((a, b) => a - b);
-    if (new Set(normalVals).size !== normalVals.length) return null;
-
     const wc = wilds.length;
+
+    // 尝试 A 作为 14（默认）
+    const result1 = _tryStraightFlush(normals, wc, n, wildRank, false);
+    if (result1) return result1;
+
+    // 如果有 A，再尝试 A 作为 1（A2345同花顺）
+    if (normals.some(c => c.rank === 'A')) {
+        const result2 = _tryStraightFlush(normals, wc, n, wildRank, true);
+        if (result2) return result2;
+    }
+
+    return null;
+}
+
+function _tryStraightFlush(normals, wc, n, wildRank, aAsOne) {
+    const normalVals = normals.map(c => {
+        if (c.rank === 'A') return aAsOne ? 1 : seqValue(c.rank);
+        return seqValue(c.rank);
+    }).sort((a, b) => a - b);
+
+    if (new Set(normalVals).size !== normalVals.length) return null;
     if (normalVals.length === 0) return null;
 
     const minV = normalVals[0];
@@ -431,12 +471,12 @@ function _checkStraightFlush(cards, wildRank, wilds, normals) {
         const newMax = maxV + extra;
         if (newMax - minV + 1 === n && newMax <= 14) {
             const topRank = RANKS[newMax - 2];
-            return { type: HAND_TYPES.STRAIGHT_FLUSH, rank: rankValue(topRank, wildRank), length: n, valid: true };
+            return { type: HAND_TYPES.STRAIGHT_FLUSH, rank: seqValue(topRank), length: n, valid: true };
         }
         const newMin = minV - extra;
         if (maxV - newMin + 1 === n && newMin >= 2) {
             const topRank = RANKS[maxV - 2];
-            return { type: HAND_TYPES.STRAIGHT_FLUSH, rank: rankValue(topRank, wildRank), length: n, valid: true };
+            return { type: HAND_TYPES.STRAIGHT_FLUSH, rank: seqValue(topRank), length: n, valid: true };
         }
     }
 

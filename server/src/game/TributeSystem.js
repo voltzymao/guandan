@@ -100,6 +100,41 @@ class TributeSystem {
     }
 
     /**
+     * 验证进贡牌是否合法
+     * 必须是手牌中最大的非级牌非王牌（逢人配不可进贡）
+     */
+    static validateTribute(card, hand, wildRank) {
+        if (!card) return { valid: false, error: '没有选择牌' };
+        if (card.suit === 'hearts' && card.rank === wildRank) {
+            return { valid: false, error: '逢人配不能进贡' };
+        }
+        if (!CardDeck.containsCards(hand, [card])) {
+            return { valid: false, error: '你没有这张牌' };
+        }
+        // 必须是最大牌
+        const best = CardDeck.getBestTributeCard(hand, wildRank);
+        if (card.rank !== best.rank) {
+            return { valid: false, error: `必须进贡最大的牌（${best.rank}）` };
+        }
+        return { valid: true };
+    }
+
+    /**
+     * 验证还贡牌点数是否合法
+     * 只能还 ≤10 的牌
+     */
+    static validateReturnRank(card, wildRank) {
+        if (!card) return { valid: false, error: '没有选择牌' };
+        const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        const idx = RANKS.indexOf(card.rank);
+        const tenIdx = RANKS.indexOf('10');
+        if (idx === -1 || idx > tenIdx) {
+            return { valid: false, error: '还贡牌必须 ≤10' };
+        }
+        return { valid: true };
+    }
+
+    /**
      * 验证还贡牌是否合法
      */
     static validateReturn(card, hand, wildRank) {

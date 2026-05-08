@@ -29,6 +29,7 @@ const GameView = {
     _myIndex: -1,
     _tributeSelected: null,
     _tributePhase: null,
+    _tributeMode: null, // 'tribute' | 'return_tribute' | null
     _unsubs: [],
     _arranged: true,  // 默认使用理牌模式
     _selectedGroup: false,  // 选中牌左侧纵向堆叠
@@ -72,6 +73,8 @@ const GameView = {
         this._selectedGroup = false;
         this._arrangePlans = [];
         this._arrangePlanIndex = 0;
+        this._tributeMode = null;
+        this._tributeSelected = null;
         store.clearSelection();
 
         const arrangeBtn = document.getElementById('btn-arrange');
@@ -122,6 +125,7 @@ const GameView = {
         this._state = state;
         this._gameId = state.gameId || this._gameId;
         store.setGame(state);
+        console.log('[Game] state.phase=', state.phase, 'levelRank=', state.levelRank, 'teamA=', state.teamALevel, 'teamB=', state.teamBLevel);
 
         // 确定自己的索引
         if (this._myIndex < 0 && store.user && state.players) {
@@ -140,9 +144,19 @@ const GameView = {
 
         this._renderAll(state);
 
+        // 兜底：如果 hand-bottom 为空但有手牌数据，强制渲染
+        const handEl = document.getElementById('hand-bottom');
+        if (handEl && handEl.children.length === 0 && state.myHand && state.myHand.length > 0) {
+            store.setHand(state.myHand);
+            this._renderHand();
+        }
+
         // 进贡阶段
         if (state.phase === 'tribute' || state.phase === 'return_tribute') {
             this._handleTributePhase(state);
+        } else if (this._tributeMode) {
+            // 阶段结束，清除进贡模式
+            this._clearTributeMode();
         }
     },
 
@@ -250,6 +264,17 @@ const GameView = {
         // 更新等级显示
         document.getElementById('level-team-a').textContent = `A队: ${data.teamALevel}`;
         document.getElementById('level-team-b').textContent = `B队: ${data.teamBLevel}`;
+
+        // 清空上一局的所有出牌区和进贡区
+        ['bottom', 'top', 'left', 'right'].forEach(dir => {
+            const el = document.getElementById(`played-${dir}`);
+            if (el) el.innerHTML = '';
+        });
+        document.getElementById('last-play-cards').innerHTML = '';
+        document.getElementById('last-play-info').textContent = '';
+        document.getElementById('tribute-display').innerHTML = '';
+        document.getElementById('tribute-display').classList.add('hidden');
+
         toast.info(`第${data.roundNumber}局开始`, 2000);
     },
 
@@ -258,25 +283,9 @@ const GameView = {
         const modal = document.getElementById('modal-game-end');
         const myTeam = this._getMyTeam();
         const won = data.winnerTeam === myTeam;
-        const myId = store.user?.id;
-
-        // 查找我的金币变化
-        let coinHtml = '';
-        if (data.coinResults && myId) {
-            const myCoin = data.coinResults.find(r => r.userId === myId);
-            if (myCoin) {
-                const deltaStr = myCoin.coinDelta >= 0 ? `+${myCoin.coinDelta}` : `${myCoin.coinDelta}`;
-                const cls = myCoin.coinDelta >= 0 ? 'coin-result' : 'coin-result negative';
-                coinHtml = `<div class="${cls}">金币变化: ${deltaStr} 🪙（余额: ${myCoin.coins}）</div>`;
-                // 更新大厅金币显示
-                if (store.user) store.user.coins = myCoin.coins;
-            }
-        }
-
         document.getElementById('game-end-title').textContent = won ? '🏆 恭喜获胜！' : '😔 很遗憾，失败了';
         document.getElementById('game-end-stats').innerHTML = `
-            <div>获胜队伍: ${data.winnerTeam}队${data.isDoubleDown ? '（双下）' : ''}</div>
-            ${coinHtml}
+            <div>获胜队伍: ${data.winnerTeam}队</div>
         `;
         modal.classList.remove('hidden');
     },
@@ -297,6 +306,52 @@ const GameView = {
         if (player) toast.info(`${player.username} 完成还贡`);
     },
 
+    /** 在中央区域展示进贡/还贡信息 */
+    _updateTributeDisplay() {
+        const info = this._state?.tributeInfo;
+        if (!info || !info.tributes) return;
+
+        const container = document.getElementById('tribute-display');
+        container.innerHTML = '';
+
+        info.tributes.forEach(t => {
+            const fromPlayer = this._state?.players?.find(p => p.id === t.from);
+            const toPlayer = this._state?.players?.find(p => p.id === t.to);
+            const fromName = fromPlayer?.username || '';
+            const toName = toPlayer?.username || '';
+
+            const div = document.createElement('div');
+            div.className = 'tribute-item';
+
+            if (t.card) {
+                // 已完成的进贡/还贡
+                const cardName = this._cardName(t.card);
+                const returnT = info.tributes.find(rt => rt.from === t.to && rt.to === t.from);
+                const isReturned = returnT && returnT.card;
+                div.innerHTML = `
+                    <span class="tribute-from">${fromName}</span>
+                    <span class="tribute-arrow">→</span>
+                    <span class="tribute-card">${cardName}</span>
+                    <span class="tribute-arrow">→</span>
+                    <span class="tribute-to">${toName}</span>
+                    ${isReturned ? `<span class="tribute-return">(已还${this._cardName(returnT.card)})</span>` : ''}
+                `;
+            } else {
+                // 待进贡
+                div.innerHTML = `
+                    <span class="tribute-from">${fromName}</span>
+                    <span class="tribute-arrow">等待进贡→</span>
+                    <span class="tribute-to">${toName}</span>
+                `;
+            }
+            container.appendChild(div);
+        });
+
+        if (container.children.length > 0) {
+            container.classList.remove('hidden');
+        }
+    },
+
     _onChat(data) {
         const container = document.getElementById('game-chat-messages');
         const el = document.createElement('div');
@@ -312,76 +367,94 @@ const GameView = {
         if (!state.tributeInfo) return;
         const myId = store.user?.id;
         const info = state.tributeInfo;
-        const isTributePhase = state.phase === 'tribute';
-        const isReturnPhase = state.phase === 'return_tribute';
-
-        const needsTribute = isTributePhase && info.pendingTributes?.includes(myId);
-        const needsReturn = isReturnPhase && info.pendingReturns?.includes(myId);
+        const needsTribute = state.phase === 'tribute' && info.pendingTributes?.includes(myId);
+        const needsReturn = state.phase === 'return_tribute' && info.pendingReturns?.includes(myId);
         if (!needsTribute && !needsReturn) return;
 
         this._tributePhase = state.phase;
-        const modal = document.getElementById('modal-tribute');
-        const leftArea = document.getElementById('tribute-left-area');
-        const rightArea = document.getElementById('tribute-right-area');
-        const confirmBtn = document.getElementById('btn-confirm-tribute');
+        this._tributeMode = needsTribute ? 'tribute' : 'return_tribute';
         this._tributeSelected = null;
-        confirmBtn.disabled = true;
+        store.clearSelection();
+        document.querySelectorAll('#hand-bottom .card').forEach(el => el.classList.remove('selected'));
 
-        if (needsTribute) {
-            document.getElementById('tribute-title').textContent = '进贡';
-            document.getElementById('tribute-desc').textContent = '请选择一张牌进贡给对方';
+        // 更新按钮：隐藏出牌/不出/提示，显示确认
+        const playBtn = document.getElementById('btn-play');
+        const passBtn = document.getElementById('btn-pass');
+        const hintBtn = document.getElementById('btn-hint');
+        playBtn.textContent = needsTribute ? '确认进贡' : '确认还贡';
+        playBtn.disabled = true;
+        passBtn.classList.add('hidden');
+        hintBtn.classList.add('hidden');
 
-            Hand.renderTribute(leftArea, store.myHand,
-                (card) => {
-                    this._tributeSelected = card;
-                    confirmBtn.disabled = false;
-                    Hand.renderTribute(leftArea, store.myHand,
-                        (c) => { this._tributeSelected = c; confirmBtn.disabled = false; },
-                        HandAnalyzer.cardKey(card)
-                    );
-                }, null
-            );
-
-            rightArea.innerHTML = '<div class="tribute-placeholder">对方将退还一张牌给你</div>';
-        } else if (needsReturn) {
-            document.getElementById('tribute-title').textContent = '还贡';
-            document.getElementById('tribute-desc').textContent = '请选择一张牌还给对方';
-
-            // 左栏：展示收到的进贡牌
-            const myTribute = info.tributes.find(t => t.to === myId);
-            if (myTribute && myTribute.card) {
-                Card.renderDisplay(leftArea, [myTribute.card]);
-            } else {
-                leftArea.innerHTML = '<div class="tribute-placeholder">对方未进贡</div>';
-            }
-
-            // 右栏：选择还贡牌
-            Hand.renderTribute(rightArea, store.myHand,
-                (card) => {
-                    this._tributeSelected = card;
-                    confirmBtn.disabled = false;
-                    Hand.renderTribute(rightArea, store.myHand,
-                        (c) => { this._tributeSelected = c; confirmBtn.disabled = false; },
-                        HandAnalyzer.cardKey(card)
-                    );
-                }, null
-            );
+        // 自动选中默认牌（进贡最大牌 / 还贡最小<=10的牌）
+        const eligible = store.myHand.filter(c => this._isTributeEligible(c));
+        if (eligible.length > 0) {
+            const autoCard = needsTribute
+                ? eligible[eligible.length - 1] // 进贡选最大的
+                : eligible[0]; // 还贡选最小的
+            this._toggleCard(autoCard);
         }
 
-        modal.classList.remove('hidden');
+        // 显示进贡/还贡信息（info 已在上方声明）
+        if (needsReturn) {
+            // 还贡阶段：显示谁进贡给了我
+            const myTribute = info.tributes.find(t => t.to === myId);
+            if (myTribute && myTribute.card) {
+                const fromPlayer = state.players.find(p => p.id === myTribute.from);
+                const fromName = fromPlayer ? fromPlayer.username : '对方';
+                toast.info(`收到 ${fromName} 的进贡：${this._cardName(myTribute.card)}`, 5000);
+            }
+        }
+
+        // 显示谁先出牌
+        const firstPlayer = info.firstPlayer;
+        const fp = state.players.find(p => p.id === firstPlayer);
+        const fpName = fp ? fp.username : '';
+        const firstMsg = info.type === 'resist' ? `抗贡！${fpName} 先出牌`
+            : info.type === 'double_down' ? `双进贡，进贡大者 ${fpName} 先出牌`
+            : `单进贡，${fpName} 先出牌`;
+        toast.info(firstMsg, 5000);
+
+        // 标记不可选牌
+        this._markTributeDisabled();
+    },
+
+    /** 获取牌的显示名称 */
+    _cardName(card) {
+        if (!card) return '';
+        if (card.suit === 'joker') return card.rank === 'red_joker' ? '大王' : '小王';
+        const suitNames = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
+        return (suitNames[card.suit] || card.suit) + card.rank;
+    },
+
+    /** 清除进贡/还贡模式，恢复出牌按钮 */
+    _clearTributeMode() {
+        this._tributeMode = null;
+        this._tributeSelected = null;
+        store.clearSelection();
+        const playBtn = document.getElementById('btn-play');
+        const passBtn = document.getElementById('btn-pass');
+        const hintBtn = document.getElementById('btn-hint');
+        playBtn.textContent = '出牌';
+        playBtn.disabled = true;
+        passBtn.classList.remove('hidden');
+        hintBtn.classList.remove('hidden');
+        document.querySelectorAll('#hand-bottom .card.tribute-disabled').forEach(el => {
+            el.classList.remove('tribute-disabled');
+            el.style.pointerEvents = '';
+            el.style.opacity = '';
+            el.style.filter = '';
+        });
     },
 
     _confirmTribute() {
         if (!this._tributeSelected) return;
-
         if (this._tributePhase === 'tribute') {
             socketManager.sendTribute(this._tributeSelected, this._gameId);
         } else {
             socketManager.returnTribute(this._tributeSelected, this._gameId);
         }
-
-        document.getElementById('modal-tribute').classList.add('hidden');
-        this._tributeSelected = null;
+        this._clearTributeMode();
     },
 
     // ===== 渲染 =====
@@ -418,12 +491,12 @@ const GameView = {
             document.getElementById('last-play-info').textContent = lastPlayer ? `${lastPlayer.username} 出牌` : '';
         }
 
-        // 当前轮次
-        if (state.currentPlayer) {
+        // 当前轮次（进贡/还贡阶段由 _handleTributePhase 控制按钮）
+        if (state.currentPlayer && state.phase !== 'tribute' && state.phase !== 'return_tribute') {
             this._updateTurnIndicator(state.currentPlayer);
             const isMyTurn = state.currentPlayer === store.user?.id;
             document.getElementById('player-bottom').classList.toggle('my-turn', isMyTurn);
-            document.getElementById('btn-play').disabled = !isMyTurn;
+            document.getElementById('btn-play').disabled = !isMyTurn || store.selectedCards.length === 0;
             document.getElementById('btn-pass').disabled = !isMyTurn;
             if (isMyTurn) Timer.start(30, () => socketManager.passCards(this._gameId));
         }
@@ -432,9 +505,89 @@ const GameView = {
     // ===== 操作 =====
 
     _toggleCard(card) {
+        // 进贡/还贡阶段：只允许选择可选的牌
+        if (this._tributeMode) {
+            const key = store._cardKey(card);
+            const isEligible = this._isTributeEligible(card);
+            if (!isEligible) return;
+            // 单选模式：清除其他选中，只选当前
+            store.clearSelection();
+            document.querySelectorAll('#hand-bottom .card').forEach(el => el.classList.remove('selected'));
+            store.selectedCards.push(card);
+            this._updateCardSelection(card);
+            this._tributeSelected = card;
+            document.getElementById('btn-play').disabled = false;
+            return;
+        }
         store.toggleCard(card);
         this._updateCardSelection(card);
         document.getElementById('btn-play').disabled = store.selectedCards.length === 0;
+    },
+
+    /** 判断一张牌在当前进贡/还贡阶段是否可选 */
+    _isTributeEligible(card) {
+        if (!this._tributeMode || !this._state) return false;
+        const levelRank = this._state.levelRank;
+        // 逢人配（红桃级牌）不可选
+        if (card.suit === 'hearts' && card.rank === levelRank) return false;
+
+        if (this._tributeMode === 'tribute') {
+            // 进贡：进贡当前手牌中最大的牌（逢人配除外）
+            const eligible = store.myHand.filter(c => !(c.suit === 'hearts' && c.rank === levelRank));
+
+            const RANK_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+
+            // 排序找最大
+            const sorted = [...eligible].sort((a, b) => {
+                if (a.suit === 'joker' && b.suit === 'joker') return a.rank === 'red_joker' ? 1 : -1;
+                if (a.suit === 'joker') return 1;
+                if (b.suit === 'joker') return -1;
+                return RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
+            });
+
+            const maxCard = sorted[sorted.length - 1];
+
+            // 检查是否有大小王
+            const hasJoker = eligible.some(c => c.suit === 'joker');
+            // 检查手牌中逢人配数量
+            const heartsLevelCount = store.myHand.filter(c => c.suit === 'hearts' && c.rank === levelRank).length;
+
+            // 特殊情况：没有大小王，只有一张逢人配，最大牌是级牌 → 找次一级的非级牌
+            if (!hasJoker && heartsLevelCount === 1 && maxCard.rank === levelRank) {
+                const nonLevelCards = eligible.filter(c => c.rank !== levelRank && c.suit !== 'joker');
+                if (nonLevelCards.length > 0) {
+                    const nonLevelSorted = [...nonLevelCards].sort((a, b) =>
+                        RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank)
+                    );
+                    const subMaxRank = nonLevelSorted[nonLevelSorted.length - 1].rank;
+                    return card.rank === subMaxRank;
+                }
+            }
+
+            return card.rank === maxCard.rank;
+        }
+        if (this._tributeMode === 'return_tribute') {
+            // 还贡：只能选 <= 10 的牌
+            const RANK_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+            const idx = RANK_ORDER.indexOf(card.rank);
+            return idx >= 0 && idx <= RANK_ORDER.indexOf('10');
+        }
+        return false;
+    },
+
+    /** 获取一组牌中的最大点数 */
+    _getMaxRank(cards) {
+        const RANK_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+        let maxIdx = -1;
+        let maxRank = null;
+        for (const c of cards) {
+            const idx = RANK_ORDER.indexOf(c.rank);
+            if (idx > maxIdx) {
+                maxIdx = idx;
+                maxRank = c.rank;
+            }
+        }
+        return maxRank;
     },
 
     /** 直接更新 DOM 中对应卡片的选中状态，避免整手重渲 */
@@ -473,12 +626,45 @@ const GameView = {
                 this._state?.levelRank,
                 (cards) => this._selectCards(cards),
                 this._selectedGroup,
-                // 拖拽生命周期：开始时暂停重渲，结束时一次性刷新
+                // 拖拽生命周期：开始时暂停重渲，结束时只更新按钮（DOM 已在拖动时即时更新）
                 () => { this._dragActive = true; },
-                () => { this._dragActive = false; this._renderHand(); }
+                (changedCards) => { this._dragActive = false; document.getElementById('btn-play').disabled = store.selectedCards.length === 0; this._updateGroupSelectedBtn(); }
             );
         }
         this._updateGroupSelectedBtn();
+        // 进贡/还贡阶段：标记不可选牌
+        this._markTributeDisabled();
+    },
+
+    /** 进贡/还贡阶段：用 CSS 类标记不可选牌 */
+    _markTributeDisabled() {
+        if (!this._tributeMode) return;
+        document.querySelectorAll('#hand-bottom .card').forEach(el => {
+            const key = el.dataset.cardId;
+            const card = store.myHand.find(c => store._cardKey(c) === key);
+            if (card && !this._isTributeEligible(card)) {
+                el.classList.add('tribute-disabled');
+            } else {
+                el.classList.remove('tribute-disabled');
+            }
+        });
+    },
+
+    /** 清除进贡/还贡模式，恢复出牌按钮 */
+    _clearTributeMode() {
+        this._tributeMode = null;
+        this._tributeSelected = null;
+        store.clearSelection();
+        const playBtn = document.getElementById('btn-play');
+        const passBtn = document.getElementById('btn-pass');
+        const hintBtn = document.getElementById('btn-hint');
+        playBtn.textContent = '出牌';
+        playBtn.disabled = true;
+        passBtn.classList.remove('hidden');
+        hintBtn.classList.remove('hidden');
+        document.querySelectorAll('#hand-bottom .card.tribute-disabled').forEach(el => {
+            el.classList.remove('tribute-disabled');
+        });
     },
 
     _renderArrangedHand(handEl) {
@@ -491,9 +677,9 @@ const GameView = {
             (c) => this._toggleCard(c),
             (cards) => this._selectStack(cards),
             this._state?.levelRank,
-            // 拖拽生命周期
+            // 拖拽生命周期：只在真正扫过牌才刷新
             () => { this._dragActive = true; },
-            () => { this._dragActive = false; this._renderHand(); }
+            (changedCards) => { this._dragActive = false; document.getElementById('btn-play').disabled = store.selectedCards.length === 0; this._updateGroupSelectedBtn(); }
         );
         // 切换按钮显隐
         const cycleBtn = document.getElementById('btn-cycle-arrange');
@@ -505,6 +691,8 @@ const GameView = {
                 cycleBtn.classList.add('hidden');
             }
         }
+        // 进贡/还贡阶段：标记不可选牌
+        this._markTributeDisabled();
     },
 
     /** 点击整组牌：全选则取消，否则添加 */
@@ -567,6 +755,10 @@ const GameView = {
     },
 
     _play() {
+        if (this._tributeMode) {
+            this._confirmTribute();
+            return;
+        }
         if (store.selectedCards.length === 0) {
             toast.warning('请先选择要出的牌');
             return;
