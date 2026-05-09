@@ -67,13 +67,13 @@ const LobbyView = {
         });
     },
 
-    enter() {
+    async enter() {
         const user = store.user;
         document.getElementById('lobby-username').textContent = user.username;
         const ratingEl = document.getElementById('lobby-rating');
         const rankLabel = ({ bronze: '🥉', silver: '🥈', gold: '🥇', diamond: '💎', master: '👑' })[user.rank_tier] || '';
         ratingEl.textContent = `Lv.${user.current_level || '2'} · ${rankLabel} ${user.rating || 1000}分`;
-        document.getElementById('lobby-coins').textContent = `🪙 ${user.coins || 0}`;
+        this._updateCoinDisplay(user.coins || 0);
 
         // 连接 Socket
         socketManager.connect(api.getToken());
@@ -84,6 +84,49 @@ const LobbyView = {
 
         // 默认显示房间面板
         this._switchPanel('rooms');
+
+        // 自动检查签到状态和任务红点
+        await this._checkDailyStatus();
+    },
+
+    _updateCoinDisplay(coins) {
+        const el = document.getElementById('lobby-coins');
+        el.textContent = `🪙 ${coins}`;
+        el.classList.add('coin-pop');
+        setTimeout(() => el.classList.remove('coin-pop'), 300);
+    },
+
+    async _checkDailyStatus() {
+        try {
+            const [checkinData, tasksData] = await Promise.all([
+                api.getCheckinStatus(),
+                api.getTasks(),
+            ]);
+
+            let hasPending = false;
+
+            // 未签到则弹出提示
+            if (checkinData.canCheckin) {
+                hasPending = true;
+                toast.info(`📅 今日尚未签到，点击「任务」领取 +${checkinData.nextReward} 🪙`, 6000);
+            }
+
+            // 检查是否有可领取的任务
+            const tasks = tasksData.tasks || [];
+            const hasClaimable = tasks.some(t => t.progress >= t.target && !t.claimed);
+            if (hasClaimable) {
+                hasPending = true;
+                toast.success('🎁 有任务奖励可领取，点击「任务」查看', 5000);
+            }
+
+            // 更新任务按钮红点
+            const taskBtn = document.querySelector('.nav-btn[data-panel="tasks"]');
+            if (taskBtn) {
+                taskBtn.classList.toggle('has-badge', hasPending);
+            }
+        } catch (e) {
+            // 静默失败
+        }
     },
 
     leave() {
@@ -338,9 +381,11 @@ const LobbyView = {
         btn.disabled = true;
         try {
             const data = await api.doCheckin();
-            document.getElementById('lobby-coins').textContent = `🪙 ${data.coins}`;
+            this._updateCoinDisplay(data.coins);
             toast.success(`签到成功！+${data.reward} 🪙（连续 ${data.dayStreak} 天）`);
             this._loadTasks();
+            // 签到后检查是否还有任务可领，决定红点
+            this._updateTaskBadgeAfterClaim();
         } catch (err) {
             toast.error(err.message || '签到失败');
             btn.disabled = false;
@@ -350,11 +395,26 @@ const LobbyView = {
     async _claimTask(taskKey) {
         try {
             const data = await api.claimTask(taskKey);
-            document.getElementById('lobby-coins').textContent = `🪙 ${data.coins}`;
+            this._updateCoinDisplay(data.coins);
             toast.success(`任务奖励 +${data.reward} 🪙`);
             this._loadTasks();
+            this._updateTaskBadgeAfterClaim();
         } catch (err) {
             toast.error(err.message || '领取失败');
+        }
+    },
+
+    async _updateTaskBadgeAfterClaim() {
+        try {
+            const tasksData = await api.getTasks();
+            const tasks = tasksData.tasks || [];
+            const hasClaimable = tasks.some(t => t.progress >= t.target && !t.claimed);
+            const taskBtn = document.querySelector('.nav-btn[data-panel="tasks"]');
+            if (taskBtn) {
+                taskBtn.classList.toggle('has-badge', hasClaimable);
+            }
+        } catch (e) {
+            // 静默失败
         }
     },
 

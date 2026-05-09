@@ -494,3 +494,42 @@
     background: rgba(244, 67, 54, 0.1);
 }
 
+/* 金币变化动画 */
+@keyframes coinPop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.25); }
+    70%  { transform: scale(0.95); }
+    100% { transform: scale(1); }
+}
+
+.coin-pop {
+    animation: coinPop 0.3s ease-out;
+}
+
+/* 导航按钮红点提醒 */
+.nav-btn {
+    position: relative;
+}
+
+.nav-btn.has-badge::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    background: #ff4d4f;
+    border-radius: 50%;
+    border: 2px solid #1a1a2e;
+}
+
+/* 增强金币显示 */
+.coin-badge {
+    font-weight: 700;
+    color: var(--color-gold, #f5af19);
+    background: rgba(245, 175, 25, 0.12);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 14px;
+}
+

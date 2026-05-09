@@ -25,7 +25,15 @@ function runMigrations() {
     const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
     for (const file of files) {
         const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-        db.exec(sql);
+        try {
+            db.exec(sql);
+        } catch (err) {
+            // 忽略已存在的列/表/索引（迁移幂等）
+            if (err.message && (err.message.includes('duplicate column name') || err.message.includes('already exists'))) {
+                continue;
+            }
+            throw err;
+        }
     }
 }
 

@@ -105,11 +105,20 @@ class CardDeck {
         // 排除逢人配（红桃级牌）
         const eligible = hand.filter(c => !(c.suit === 'hearts' && c.rank === wildRank));
 
-        // 排序：王牌 > 其他牌（按 rank）
+        // 排序：王牌 > 级牌 > A > K > ... > 2
         const sorted = eligible.sort((a, b) => {
+            // 王牌之间比较
             if (a.suit === 'joker' && b.suit === 'joker') return a.rank === 'red_joker' ? 1 : -1;
             if (a.suit === 'joker') return 1;
             if (b.suit === 'joker') return -1;
+
+            // 级牌（非逢人配）仅次于王牌
+            const aIsLevel = a.rank === wildRank;
+            const bIsLevel = b.rank === wildRank;
+            if (aIsLevel && !bIsLevel) return 1;
+            if (!aIsLevel && bIsLevel) return -1;
+
+            // 普通牌按自然顺序
             return RANKS.indexOf(a.rank) - RANKS.indexOf(b.rank);
         });
 

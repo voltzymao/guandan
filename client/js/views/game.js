@@ -283,9 +283,25 @@ const GameView = {
         const modal = document.getElementById('modal-game-end');
         const myTeam = this._getMyTeam();
         const won = data.winnerTeam === myTeam;
+        const myId = store.user?.id;
+
+        // 查找我的金币变化
+        let coinHtml = '';
+        if (data.coinResults && myId) {
+            const myCoin = data.coinResults.find(r => r.userId === myId);
+            if (myCoin) {
+                const deltaStr = myCoin.coinDelta >= 0 ? `+${myCoin.coinDelta}` : `${myCoin.coinDelta}`;
+                const cls = myCoin.coinDelta >= 0 ? 'coin-result' : 'coin-result negative';
+                coinHtml = `<div class="${cls}">金币变化: ${deltaStr} 🪙（余额: ${myCoin.coins}）</div>`;
+                // 更新大厅金币显示
+                if (store.user) store.user.coins = myCoin.coins;
+            }
+        }
+
         document.getElementById('game-end-title').textContent = won ? '🏆 恭喜获胜！' : '😔 很遗憾，失败了';
         document.getElementById('game-end-stats').innerHTML = `
-            <div>获胜队伍: ${data.winnerTeam}队</div>
+            <div>获胜队伍: ${data.winnerTeam}队${data.isDoubleDown ? '（双下）' : ''}</div>
+            ${coinHtml}
         `;
         modal.classList.remove('hidden');
     },
@@ -537,11 +553,17 @@ const GameView = {
 
             const RANK_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 
-            // 排序找最大
+            // 排序找最大：王牌 > 级牌 > A > K > ... > 2
             const sorted = [...eligible].sort((a, b) => {
                 if (a.suit === 'joker' && b.suit === 'joker') return a.rank === 'red_joker' ? 1 : -1;
                 if (a.suit === 'joker') return 1;
                 if (b.suit === 'joker') return -1;
+
+                const aIsLevel = a.rank === levelRank;
+                const bIsLevel = b.rank === levelRank;
+                if (aIsLevel && !bIsLevel) return 1;
+                if (!aIsLevel && bIsLevel) return -1;
+
                 return RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
             });
 
