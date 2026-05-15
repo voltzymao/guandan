@@ -424,6 +424,9 @@ function handleTribute(io, socket, gameId, userId, card) {
     const result = gameState.tribute(userId, card);
     if (!result.success) {
         socket.emit('error', { message: result.error });
+        // 广播当前状态，让客户端重新同步进贡模式
+        const roomCode = getRoomCodeByGameId(gameId);
+        if (roomCode) broadcastState(io, roomCode, gameState);
         return;
     }
 
@@ -447,6 +450,8 @@ function handleReturnTribute(io, socket, gameId, userId, card) {
     const result = gameState.returnTribute(userId, card);
     if (!result.success) {
         socket.emit('error', { message: result.error });
+        const roomCode = getRoomCodeByGameId(gameId);
+        if (roomCode) broadcastState(io, roomCode, gameState);
         return;
     }
 

@@ -213,6 +213,9 @@ const GameView = {
             toast.info('轮到你出牌了', 2000);
         } else {
             Timer.stop();
+            // 清除提示选中的牌
+            store.clearSelection();
+            document.querySelectorAll('#hand-bottom .card').forEach(el => el.classList.remove('selected'));
         }
     },
 
@@ -470,7 +473,8 @@ const GameView = {
         } else {
             socketManager.returnTribute(this._tributeSelected, this._gameId);
         }
-        this._clearTributeMode();
+        // 不在这里清除进贡模式，等服务器返回 game:state 后再由 _onState 处理
+        document.getElementById('btn-play').disabled = true;
     },
 
     // ===== 渲染 =====
@@ -792,6 +796,8 @@ const GameView = {
 
     _pass() {
         socketManager.passCards(this._gameId);
+        store.clearSelection();
+        this._renderHand();
     },
 
     _hint() {
