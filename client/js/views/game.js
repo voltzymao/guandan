@@ -36,6 +36,7 @@ const GameView = {
     _arrangePlans: [],
     _arrangePlanIndex: 0,
     _dragActive: false, // 拖拽刷选中，避免中途重渲
+    _lastResistRound: null,
 
     _DIRS: ['bottom', 'right', 'top', 'left'],
 
@@ -75,6 +76,7 @@ const GameView = {
         this._arrangePlanIndex = 0;
         this._tributeMode = null;
         this._tributeSelected = null;
+        this._lastResistRound = null;
         store.clearSelection();
 
         const arrangeBtn = document.getElementById('btn-arrange');
@@ -157,6 +159,17 @@ const GameView = {
         } else if (this._tributeMode) {
             // 阶段结束，清除进贡模式
             this._clearTributeMode();
+        }
+
+        // 抗贡：不在进贡阶段但有 tributeInfo 且为 resist
+        if (state.tributeInfo?.type === 'resist' && state.roundNumber !== this._lastResistRound) {
+            this._lastResistRound = state.roundNumber;
+            const ri = state.tributeInfo;
+            const resister = state.players?.find(p => p.id === ri.resisterId);
+            const resisterName = resister ? resister.username : '某玩家';
+            const fp = state.players?.find(p => p.id === ri.firstPlayer);
+            const fpName = fp ? fp.username : '';
+            toast.info(`抗贡！${resisterName} 手握双大王，${fpName} 先出牌`, 5000);
         }
     },
 

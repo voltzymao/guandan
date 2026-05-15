@@ -91,13 +91,14 @@ class GameState {
             this.teamBLevel
         );
 
+        this.tributeInfo = tributeInfo;
+
         if (tributeInfo.type === 'resist') {
             this.phase = PHASES.PLAYING;
             this.currentPlayer = tributeInfo.firstPlayer || this.lastFinishOrder[0];
             return;
         }
 
-        this.tributeInfo = tributeInfo;
         this.phase = PHASES.TRIBUTE;
 
         // 初始化待进贡列表，等待玩家手动选牌
@@ -444,13 +445,15 @@ class GameState {
             levelRank: this.currentLevel,
             tributeInfo: this.tributeInfo ? {
                 type: this.tributeInfo.type,
-                tributes: this.tributeInfo.tributes.map(t => ({
+                tributes: (this.tributeInfo.tributes || []).map(t => ({
                     from: t.from,
                     to: t.to,
                     card: t.card,
                 })),
                 pendingTributes: this.pendingTributes ? Object.keys(this.pendingTributes) : [],
-                pendingReturns: this.tributeInfo.pendingReturns,
+                pendingReturns: this.tributeInfo.pendingReturns || [],
+                resisterId: this.tributeInfo.resisterId,
+                firstPlayer: this.tributeInfo.firstPlayer,
                 returns: Object.entries(this.pendingReturns || {}).map(([returnerId, card]) => ({
                     from: Number(returnerId),
                     card,
