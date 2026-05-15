@@ -399,8 +399,10 @@ const GameView = {
         if (!state.tributeInfo) return;
         const myId = store.user?.id;
         const info = state.tributeInfo;
-        const needsTribute = state.phase === 'tribute' && info.pendingTributes?.includes(myId);
-        const needsReturn = state.phase === 'return_tribute' && info.pendingReturns?.includes(myId);
+        // 用 String 比较避免服务端/客户端 ID 类型不一致
+        const idStr = String(myId);
+        const needsTribute = state.phase === 'tribute' && info.pendingTributes?.some(id => String(id) === idStr);
+        const needsReturn = state.phase === 'return_tribute' && info.pendingReturns?.some(id => String(id) === idStr);
         if (!needsTribute && !needsReturn) return;
 
         this._tributePhase = state.phase;

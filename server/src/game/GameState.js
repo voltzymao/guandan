@@ -450,7 +450,7 @@ class GameState {
                     to: t.to,
                     card: t.card,
                 })),
-                pendingTributes: this.pendingTributes ? Object.keys(this.pendingTributes) : [],
+                pendingTributes: this.pendingTributes ? Object.keys(this.pendingTributes).map(Number) : [],
                 pendingReturns: this.tributeInfo.pendingReturns || [],
                 resisterId: this.tributeInfo.resisterId,
                 firstPlayer: this.tributeInfo.firstPlayer,
