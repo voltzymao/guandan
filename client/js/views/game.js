@@ -170,6 +170,7 @@ const GameView = {
             const fp = state.players?.find(p => p.id === ri.firstPlayer);
             const fpName = fp ? fp.username : '';
             toast.info(`抗贡！${resisterName} 手握双大王，${fpName} 先出牌`, 5000);
+            this._updateTributeDisplay();
         }
     },
 
@@ -331,24 +332,44 @@ const GameView = {
     _onTributeCompleted(data) {
         const player = this._state?.players?.find(p => p.id === data.userId);
         if (player) toast.info(`${player.username} 完成进贡`);
+        this._updateTributeDisplay();
     },
 
     _onTributeReturned(data) {
         const player = this._state?.players?.find(p => p.id === data.userId);
         if (player) toast.info(`${player.username} 完成还贡`);
+        this._updateTributeDisplay();
     },
 
-    /** 在中央区域展示进贡/还贡信息 */
+    /** 在中央区域展示进贡/还贡信息（持久显示，每局刷新） */
     _updateTributeDisplay() {
         const info = this._state?.tributeInfo;
-        if (!info || !info.tributes) return;
-
         const container = document.getElementById('tribute-display');
         container.innerHTML = '';
 
+        // 抗贡
+        if (info?.type === 'resist') {
+            const resister = this._state?.players?.find(p => p.id === info.resisterId);
+            const resisterName = resister ? resister.username : '某玩家';
+            const fp = this._state?.players?.find(p => p.id === info.firstPlayer);
+            const fpName = fp ? fp.username : '';
+            container.innerHTML = `
+                <div class="tribute-item tribute-resist">🛡 抗贡：${resisterName} 手握双大王</div>
+                <div class="tribute-item">${fpName} 先出牌</div>
+            `;
+            container.classList.remove('hidden');
+            return;
+        }
+
+        if (!info?.tributes || info.tributes.length === 0) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        // 按进贡/还贡逐条展示
         info.tributes.forEach(t => {
-            const fromPlayer = this._state?.players?.find(p => p.id === t.from);
-            const toPlayer = this._state?.players?.find(p => p.id === t.to);
+            const fromPlayer = this._state?.players?.find(p => String(p.id) === String(t.from));
+            const toPlayer = this._state?.players?.find(p => String(p.id) === String(t.to));
             const fromName = fromPlayer?.username || '';
             const toName = toPlayer?.username || '';
 
@@ -356,32 +377,29 @@ const GameView = {
             div.className = 'tribute-item';
 
             if (t.card) {
-                // 已完成的进贡/还贡
                 const cardName = this._cardName(t.card);
-                const returnT = info.tributes.find(rt => rt.from === t.to && rt.to === t.from);
-                const isReturned = returnT && returnT.card;
+                // 还贡信息在 returns 数组：[{from: returnerId, card}]
+                const returnInfo = info.returns?.find(r => String(r.from) === String(t.to));
+                const isReturned = returnInfo && returnInfo.card;
                 div.innerHTML = `
                     <span class="tribute-from">${fromName}</span>
-                    <span class="tribute-arrow">→</span>
+                    <span class="tribute-arrow">进贡</span>
                     <span class="tribute-card">${cardName}</span>
                     <span class="tribute-arrow">→</span>
                     <span class="tribute-to">${toName}</span>
-                    ${isReturned ? `<span class="tribute-return">(已还${this._cardName(returnT.card)})</span>` : ''}
+                    ${isReturned ? `<span class="tribute-return">${toName} 还 <span class="tribute-card">${this._cardName(returnInfo.card)}</span></span>` : ''}
                 `;
             } else {
-                // 待进贡
                 div.innerHTML = `
                     <span class="tribute-from">${fromName}</span>
-                    <span class="tribute-arrow">等待进贡→</span>
+                    <span class="tribute-arrow">⏳等待进贡→</span>
                     <span class="tribute-to">${toName}</span>
                 `;
             }
             container.appendChild(div);
         });
 
-        if (container.children.length > 0) {
-            container.classList.remove('hidden');
-        }
+        container.classList.remove('hidden');
     },
 
     _onChat(data) {
@@ -429,25 +447,24 @@ const GameView = {
             this._toggleCard(autoCard);
         }
 
-        // 显示进贡/还贡信息（info 已在上方声明）
+        // 显示进贡/还贡信息
         if (needsReturn) {
-            // 还贡阶段：显示谁进贡给了我
-            const myTribute = info.tributes.find(t => t.to === myId);
+            const myTribute = info.tributes.find(t => String(t.to) === idStr);
             if (myTribute && myTribute.card) {
-                const fromPlayer = state.players.find(p => p.id === myTribute.from);
+                const fromPlayer = state.players.find(p => String(p.id) === String(myTribute.from));
                 const fromName = fromPlayer ? fromPlayer.username : '对方';
                 toast.info(`收到 ${fromName} 的进贡：${this._cardName(myTribute.card)}`, 5000);
             }
         }
 
-        // 显示谁先出牌
-        const firstPlayer = info.firstPlayer;
-        const fp = state.players.find(p => p.id === firstPlayer);
+        // 谁先出牌（简短提示）
+        const fp = state.players.find(p => String(p.id) === String(info.firstPlayer));
         const fpName = fp ? fp.username : '';
-        const firstMsg = info.type === 'resist' ? `抗贡！${fpName} 先出牌`
-            : info.type === 'double_down' ? `双进贡，进贡大者 ${fpName} 先出牌`
-            : `单进贡，${fpName} 先出牌`;
-        toast.info(firstMsg, 5000);
+        const typeLabel = { double_down: '双进贡', single_down: '单进贡' };
+        toast.info(`${typeLabel[info.type] || ''} ${fpName} 先出牌`, 2000);
+
+        // 更新顶部持久展示
+        this._updateTributeDisplay();
 
         // 标记不可选牌
         this._markTributeDisabled();
@@ -535,6 +552,9 @@ const GameView = {
             document.getElementById('btn-pass').disabled = !isMyTurn;
             if (isMyTurn) Timer.start(30, () => socketManager.passCards(this._gameId));
         }
+
+        // 持久化进贡/还贡展示
+        this._updateTributeDisplay();
     },
 
     // ===== 操作 =====

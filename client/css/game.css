@@ -346,6 +346,10 @@
     color: #4caf50;
     font-size: 12px;
 }
+.tribute-resist {
+    color: #ff9800;
+    font-weight: 700;
+}
 
 /* 等级显示 */
 #game-level-display {
