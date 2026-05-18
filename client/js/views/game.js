@@ -156,6 +156,12 @@ const GameView = {
         // 进贡阶段
         if (state.phase === 'tribute' || state.phase === 'return_tribute') {
             this._handleTributePhase(state);
+            // 如果当前用户不需要进贡/还贡，禁用操作按钮，避免误导
+            if (!this._tributeMode) {
+                document.getElementById('btn-play').disabled = true;
+                document.getElementById('btn-pass').classList.add('hidden');
+                document.getElementById('btn-hint').classList.add('hidden');
+            }
         } else if (this._tributeMode) {
             // 阶段结束，清除进贡模式
             this._clearTributeMode();
